@@ -9,7 +9,7 @@ HASHTAG_RE         = /(?:^|[^\/\)\w])#(#{HASHTAG_NAME_RE})/i
 CUSTOMEMOJI_RE     = /(?<=[^[:alnum:]:]|\n|^)
                      :([a-zA-Z0-9_]{2,}):
                       (?=[^[:alnum:]:]|$)/x
-EMOJI_RE           = /\p{Emoji}/
+EMOJI_RE           = /\p{Extended_Pictographic}/
 KANJI_RE           = /[一-龠々]/
 
 class MastodonReader
@@ -61,6 +61,7 @@ class Toot
     str = Sanitize.clean(toot["content"])
                   .strip.chomp
                   .gsub(HASHTAG_RE, '')
+                  .gsub(EMOJI_RE, '')
                   .gsub(CUSTOMEMOJI_RE, '')
     URI.extract(str).uniq.each do |url|
       str.gsub!(url, '')

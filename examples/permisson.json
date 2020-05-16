@@ -1,0 +1,223 @@
+[
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 1,
+            "screenname": "@highemerly@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@highemerly/104177814754771738"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 81,
+            "screenname": "@seibe@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": false
+        },
+        "evidence": [
+            "https://handon.club/@seibe/104161658574058150"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 9412,
+            "screenname": "@y_f_@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": false
+        },
+        "evidence": [
+            "https://handon.club/@y_f_/104177816570555187"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 3922,
+            "screenname": "@pom_matsu@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@pom_matsu/104177818229136247"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 5034,
+            "screenname": "@hiroakichan@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@hiroakichan/104165376673228666"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 17506,
+            "screenname": "@Eucritical@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@Eucritical/104165424748186325"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 11,
+            "screenname": "@gomama@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": false
+        },
+        "evidence": [
+            "https://handon.club/@gomama/104177822347508255"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 20545,
+            "screenname": "@maemaestra@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@maemaestra/104177822631263037"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 9835,
+            "screenname": "@S_iRe_N@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@S_iRe_N/104177825782955123"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 7,
+            "screenname": "@hijouguchi@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": false
+        },
+        "evidence": [
+            "https://handon.club/@hijouguchi/104177826144863587"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 224,
+            "screenname": "@rio_tc@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@rio_tc/104177831082262300"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 12,
+            "screenname": "@yuhina@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": false
+        },
+        "evidence": [
+            "https://handon.club/@yuhina/104177868388413500"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 37753,
+            "screenname": "@rrrwp@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@rrrwp/104177870800062979"
+        ]
+    }
+]

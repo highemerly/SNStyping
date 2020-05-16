@@ -34,32 +34,49 @@ MacOSの場合，brewがインストールされていれば，以下のよう�
 
 [Mastodon](https://github.com/tootsuite/mastodon)の特定ユーザの最近の発言，ログインユーザのお気に入りやブックマーク等を元にワードファイルを生成します。
 
-#### 事前設定
+#### 事前設定：Mastodonへのログイン
 
-Mastodonへのログイン設定です。取得するデータによって必須の場合と必須でない場合がありますが，必須でなくともログインしておくことでAPI制限が緩和されますので，ログインすることを強くオススメします。アクセストークンは何らかの方法で予め取得し，以下の様に環境変数に読ませておいてください。
+Mastodonへのログイン設定です。取得するデータによって必須の場合と必須でない場合がありますが，必須でなくともログインしておくことでAPI制限が緩和されますので，ログインすることを強くオススメします。アクセストークンは何らかの方法で予め取得し，以下のように環境変数に読ませておいてください。
 
 ```
 % export MASTODON_ACCESS_TOKEN="<mastodon-access-token>"
 ```
 
+#### トゥートの取得方法
+
+取得方法に応じて適切なスクリプトファイルを選択します。
+
+|ファイル名|内容|ログイン|
+|:--------|:---|:---|
+|`user.rb`|特定のユーザの発言を取得します。|推奨|
+|`bookmark.rb`|自身がブックマークした発言を取得します。|必須|
+|`favourite.rb`|自身がお気に入りに登録した発言を取得します。|必須|
+
 #### ファイルの出力
 
-現状はMastodonにおいて，特定ユーザの発言を遡る部分だけ実装されています。結果は標準出力に出力されます。
+特定ユーザの発言をさかのぼって取得する，`user.rb`を利用する場合の例で説明します。設定はコマンドラインパラメータで設定します。`-h`または`--help` を付与することで各パラメータの詳細を確認することができます。
 
 ```
 % ruby user.rb -h
 Usage: user [options]
+    -s, --service VALUE              Specify service hostname
     -i, --account-id VALUE           Specify :id for account
     -m, --max-id VALUE               Specify initial max_id
+    -f, --favourite-threshold VALUE  Specify favourite-threshold (default: 2)
     -u, --with-unlisted-toot         Accept not only public but also unlisted toot (default: false)
-    -n, --number VALUE               Specify number of API call (default: 10)
+    -n, --number VALUE               Specify page count for API call (default: 10)
+    -v, --verbose                    Set verbose mode (default: false)
 ```
 
-実行例を示します。標準出力をテキストファイルに保存し，そのファイルをWeatherTyptingに読ませれば，タイピングゲームを楽しむことができます。
+実行例を示します。標準出力をテキストファイルに保存し，そのファイルをWeatherTyptingに読ませれば，タイピングを楽しむことができます。また，標準エラー出力として，より古い発言を取得したい場合にそのまま利用出来るコマンドが表示されます。
 
 ```
-% ruby user.rb -i 1 -u -n 3 > output/snstyping.txt
+% ruby user.rb -s handon.club -i 1 -u -n 3 > output/snstyping.txt
+For more toot:
+ ruby user.rb -s handon.club -i 1 -m 104178019177316642 -f 2 -n 3
 ```
+
+`-m`オプションで設定出来る`max-id`は，Mastodon API上の値です。`user.rb`の場合はトゥート自体のIDを指定しますが，`favourite.rb`や`bookmark.rb`の場合は内部的に利用されているIDを指定することに注意してください。詳細は，MastodonのAPIガイドを参照してください。
 
 ### Weather Typing
 

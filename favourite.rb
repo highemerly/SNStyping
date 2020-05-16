@@ -8,7 +8,7 @@ max_id = opt.get[:max_id]
 
 (1..opt.get[:num_of_page]).each do
 
-  toot_list, max_id = mstdn.user_statuses(opt.get[:account_id], max_id)
+  toot_list, max_id = mstdn.favourites(max_id, opt.get[:limit])
 
   toot_list.each do |toot|
     if Toot.accept?(toot, opt.get) then

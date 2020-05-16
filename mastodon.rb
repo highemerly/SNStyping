@@ -28,6 +28,14 @@ class MastodonReader
     return json, get_min_id(json)
   end
 
+  def timelines_tag(hashtag, max_id=0, limit=20, local=false, only_media=false)
+    uri = URI.parse("https://#{@host}/api/v1/timelines/tag/#{URI.escape(hashtag)}")
+    param = max_id > 0 ? { max_id: max_id, limit: limit, local: local, only_media: only_media} : { limit: limit, local: local, only_media: only_media}
+    uri.query = URI.encode_www_form(param)
+    json = JSON.parse(@http.get(uri,@headers).body)
+    return json, get_min_id(json)
+  end
+
   def bookmarks(max_id=0, limit=20)
     uri = URI.parse("https://#{@host}/api/v1/bookmarks")
     return self.get_json_with_pager_style(uri, max_id, limit)

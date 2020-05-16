@@ -69,8 +69,9 @@ class Toot
     str
   end
 
-  def self.accept?(toot, visibility=["public"], favourites_count=2)
-    toot["mentions"].empty? && visibility.include?(toot["visibility"]) && toot["favourites_count"].to_i >= favourites_count
+  def self.accept?(toot, param)
+    visibility = param[:accept_unlisted_toot] ? ["public", "unlisted"] : ["public"]
+    toot["mentions"].empty? && visibility.include?(toot["visibility"]) && toot["favourites_count"].to_i >= param[:favourite_threshold]
   end
 
   def self.authorized_user?(account_id=[1])

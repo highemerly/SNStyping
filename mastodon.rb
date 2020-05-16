@@ -3,9 +3,6 @@ require 'json'
 require 'sanitize'
 require 'uri'
 
-MASTODON_SERVER = "handon.club"
-MASTODON_USER_ID = 1 # highemerly: 1, seibe: 81
-
 HASHTAG_SEPARATORS = "_\u00B7\u200c"
 HASHTAG_NAME_RE    = "([[:word:]_][[:word:]#{HASHTAG_SEPARATORS}]*[[:alpha:]#{HASHTAG_SEPARATORS}][[:word:]#{HASHTAG_SEPARATORS}]*[[:word:]_])|([[:word:]_]*[[:alpha:]][[:word:]_]*)"
 HASHTAG_RE         = /(?:^|[^\/\)\w])#(#{HASHTAG_NAME_RE})/i
@@ -16,27 +13,28 @@ EMOJI_RE           = /\p{Emoji}/
 KANJI_RE           = /[一-龠々]/
 
 class MastodonReader
-  def initialize
-    uri = URI.parse("https://#{MASTODON_SERVER}/")
+  def initialize(mastodon_hostname)
+    @host = mastodon_hostname
+    uri = URI.parse("https://#{@host}/")
     @http = Net::HTTP.new(uri.host, uri.port)
     @http.use_ssl = true
     @headers = { "Authorization" => "Bearer #{ENV['MASTODON_ACCESS_TOKEN']}" }
   end
 
   def user_statuses(account_id, max_id=0)
-    uri = URI.parse("https://#{MASTODON_SERVER}/api/v1/accounts/#{account_id}/statuses")
+    uri = URI.parse("https://#{@host}/api/v1/accounts/#{account_id}/statuses")
     uri.query = URI.encode_www_form({ max_id: max_id }) if max_id > 0
     json = JSON.parse(@http.get(uri,@headers).body)
     return json, get_min_id(json)
   end
 
   def bookmarks(max_id=0, limit=20)
-    uri = URI.parse("https://#{MASTODON_SERVER}/api/v1/bookmarks")
+    uri = URI.parse("https://#{@host}/api/v1/bookmarks")
     return self.get_json_with_pager_style(uri, max_id, limit)
   end
 
   def favourites(max_id=0, limit=20)
-    uri = URI.parse("https://#{MASTODON_SERVER}/api/v1/favourites")
+    uri = URI.parse("https://#{@host}/api/v1/favourites")
     return self.get_json_with_pager_style(uri, max_id, limit)
   end
 

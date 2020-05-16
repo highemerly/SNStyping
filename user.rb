@@ -4,8 +4,8 @@ require './weathertyping.rb'
 
 DEBUG = false
 
-opt = Option.new
-mstdn = MastodonReader.new
+opt = Option.new(ARGV)
+mstdn = MastodonReader.new(opt.get[:service])
 max_id = opt.get[:max_id]
 
 (1..opt.get[:num_of_page]).each do

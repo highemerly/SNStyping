@@ -18,12 +18,12 @@ class String
 end
 
 class WeatherTyping
-  def self.entry(question, format="txt")
+  def self.entry(question, username, format="txt")
     case format
     when /txt|TXT|text|TEXT/
-      "#{question}\n#{self.yomi(question)}\n"
+      "#{question} (@#{username})\n#{self.yomi(question)}\n"
     when /xml|XML/
-      "<Word>\n  <Display>#{question}</Display>\n  <Characters>#{self.yomi(question)}</Characters>\n</Word>\n"
+      "<Word>\n  <Display>#{question} (@#{username})</Display>\n  <Characters>#{self.yomi(question)}</Characters>\n</Word>\n"
     end
   end
 

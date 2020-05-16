@@ -14,7 +14,7 @@ max_id = opt.get[:max_id]
     if Toot.accept?(toot, opt.get) then
       status = Toot.format(toot)
       print "#{toot["content"]}\n" if opt.get[:debug]
-      print WeatherTyping.entry(status, "txt") if status.length > 0
+      print WeatherTyping.entry(status, toot["account"]["username"], "txt") if status.length > 0
     end
   end
 

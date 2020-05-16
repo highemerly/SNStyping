@@ -7,6 +7,7 @@ class Option
     @opts = {
       service: "handon.club",
       account_id: 1,
+      hagetter_id: 0,
       max_id: 0,
       favourite_threshold: (mode == "user.rb")? 2 : 0,
       accept_unlisted_toot: false,
@@ -17,6 +18,7 @@ class Option
 
     o.on('-s', '--service VALUE', 'Specify service hostname') { |v| @opts[:service] = v }
     o.on('-i', '--account-id VALUE', 'Specify :id for account') { |v| @opts[:account_id] = v.to_i } if mode == "user.rb"
+    o.on('-g', '--hagetter-id VALUE', 'Specify hagetter status id') { |v| @opts[:hagetter_id] = v.to_i } if mode == "hagetter.rb"
     o.on('-m', '--max-id VALUE', 'Specify initial max_id'){ |v| @opts[:max_id] = v.to_i } if mode != "hagetter.rb"
     o.on('-f', '--favourite-threshold VALUE', "Specify favourite-threshold (default: #{@opts[:favourite_threshold]})"){ |v| @opts[:favourite_threshold] = v.to_i }
     o.on('-u', '--with-unlisted-toot', 'Accept not only public but also unlisted toot (default: false)'){ |v| @opts[:accept_unlisted_toot] = v }

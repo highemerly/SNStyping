@@ -22,4 +22,4 @@ max_id = opt.get[:max_id]
 
 end
 
-puts "Next...: \nruby user.rb -i #{opt.get[:account_id]} -m #{max_id} -n #{opt.get[:num_of_page]}"
+STDERR.puts "For more toot: \nruby user.rb -i #{opt.get[:account_id]} -m #{max_id} -n #{opt.get[:num_of_page]}"

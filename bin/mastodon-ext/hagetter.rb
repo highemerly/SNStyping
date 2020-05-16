@@ -1,6 +1,6 @@
-require './optparse.rb'
-require './mastodon.rb'
-require './weathertyping.rb'
+require_relative '../../optparse.rb'
+require_relative '../../mastodon.rb'
+require_relative '../../weathertyping.rb'
 
 ENDPOINT = "https://hagetter.hansode.club/api/federation/snstyping/statuses/"
 

@@ -44,7 +44,7 @@ Mastodonへのログイン設定です。取得するデータによって必須
 
 #### トゥートの取得方法
 
-取得方法に応じて適切なスクリプトファイルを選択します。
+取得方法に応じて適切なスクリプトファイルを選択します。ファイルは `bin/mastodon` または `bin/mastodon-ext` の中にあります。
 
 |ファイル名|内容|ログイン|
 |:--------|:---|:---|
@@ -60,12 +60,12 @@ Mastodonへのログイン設定です。取得するデータによって必須
 特定ユーザの発言をさかのぼって取得する，`user.rb`を利用する場合の例で説明します。設定はコマンドラインパラメータで設定します。`-h`または`--help` を付与することで各パラメータの詳細を確認することができます。
 
 ```
-% ruby user.rb -h
+% ruby bin/mastodon/user.rb -h
 Usage: user [options]
-    -s, --service VALUE              Specify service hostname
+    -s, --service STRING             Specify service hostname
     -i, --account-id VALUE           Specify :id for account
     -m, --max-id VALUE               Specify initial max_id
-    -f, --favourite-threshold VALUE  Specify favourite-threshold (default: 2)
+    -f, --favourite-threshold VALUE  Specify threshold of favourite (default: 2)
     -u, --with-unlisted-toot         Accept not only public but also unlisted toot (default: false)
     -n, --number VALUE               Specify page count for API call (default: 10)
     -v, --verbose                    Set verbose mode (default: false)
@@ -74,7 +74,8 @@ Usage: user [options]
 実行例を示します。標準出力をテキストファイルに保存し，そのファイルをWeatherTyptingに読ませれば，タイピングを楽しむことができます。また，標準エラー出力として，より古い発言を取得したい場合にそのまま利用出来るコマンドが表示されます。
 
 ```
-% ruby user.rb -s handon.club -i 1 -u -n 3 > output/snstyping.txt
+% cd bin/mastodon
+% ruby user.rb -s handon.club -i 1 -u -n 3 > ../../output/snstyping.txt
 For more toot:
  ruby user.rb -s handon.club -i 1 -m 104178019177316642 -f 2 -n 3
 ```

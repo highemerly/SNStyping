@@ -2,8 +2,8 @@ require 'net/http'
 require 'json'
 require 'sanitize'
 require 'uri'
-require './weathertyping.rb'
-require './optparse.rb'
+require_relative './weathertyping.rb'
+require_relative './optparse.rb'
 
 HASHTAG_SEPARATORS = "_\u00B7\u200c"
 HASHTAG_NAME_RE    = "([[:word:]_][[:word:]#{HASHTAG_SEPARATORS}]*[[:alpha:]#{HASHTAG_SEPARATORS}][[:word:]#{HASHTAG_SEPARATORS}]*[[:word:]_])|([[:word:]_]*[[:alpha:]][[:word:]_]*)"

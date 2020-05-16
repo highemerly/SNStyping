@@ -2,6 +2,8 @@ require 'net/http'
 require 'json'
 require 'sanitize'
 require 'uri'
+require './weathertyping.rb'
+require './optparse.rb'
 
 HASHTAG_SEPARATORS = "_\u00B7\u200c"
 HASHTAG_NAME_RE    = "([[:word:]_][[:word:]#{HASHTAG_SEPARATORS}]*[[:alpha:]#{HASHTAG_SEPARATORS}][[:word:]#{HASHTAG_SEPARATORS}]*[[:word:]_])|([[:word:]_]*[[:alpha:]][[:word:]_]*)"
@@ -10,7 +12,45 @@ CUSTOMEMOJI_RE     = /(?<=[^[:alnum:]:]|\n|^)
                      :([a-zA-Z0-9_]{2,}):
                       (?=[^[:alnum:]:]|$)/x
 EMOJI_RE           = /\p{Extended_Pictographic}/
-KANJI_RE           = /[一-龠々]/
+
+class Mastodon
+  def initialize(argv, filename)
+    @opt = Option.new(argv, filename)
+    @filename = filename
+    @mstdn = MastodonReader.new(@opt.get[:service])
+    @max_id = @opt.get[:max_id]
+  end
+
+  def run
+    (1..@opt.get[:num_of_page]).each do
+      @toot_list, @max_id =
+        case @filename
+        when "user.rb"
+          @mstdn.user_statuses(@opt.get[:account_id], @max_id)
+        when "hashtag.rb"
+          @mstdn.timelines_tag(@opt.get[:hashtag], @max_id)
+        when "local_timeline.rb"
+          @mstdn.timelines_public(true, @max_id)
+        when "bookmark.rb"
+          @mstdn.bookmarks(@max_id, @opt.get[:limit])
+        when "favourite.rb"
+          @mstdn.favourites(@max_id, @opt.get[:limit])
+        end
+      self.create_txt
+    end
+    STDERR.puts "For more toot:\n #{@opt.command(@filename, @max_id)}"
+  end
+
+  def create_txt
+    @toot_list.each do |toot|
+      if Toot.accept?(toot, @opt.get) then
+        status = Toot.format(toot)
+        print "#{toot["content"]}\n" if @opt.get[:debug]
+        print WeatherTyping.entry(status, toot["account"]["username"], "txt") if status.length > 0
+      end
+    end
+  end
+end
 
 class MastodonReader
   def initialize(mastodon_hostname)

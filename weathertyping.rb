@@ -2,6 +2,8 @@ require 'nkf'
 require 'natto'
 require 'jumanpp_ruby'
 
+KANJI_RE = /[一-龠々]/
+
 class String
   def yomi
     NKF.nkf('-w -X', self)

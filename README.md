@@ -58,7 +58,7 @@ Usage: user [options]
 実行例を示します。標準出力をテキストファイルに保存し，そのファイルをWeatherTyptingに読ませれば，タイピングゲームを楽しむことができます。
 
 ```
-% ruby user.rb -i 1 -u -n 3 > snstyping.txt
+% ruby user.rb -i 1 -u -n 3 > output/snstyping.txt
 ```
 
 ### Weather Typing

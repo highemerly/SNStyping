@@ -59,7 +59,7 @@ Mastodonへのログイン設定です。取得するデータによって必須
 - `bin/mastodon-ext`配下: Mastodonに関する外部サービス
 
 |ファイル名|取得方法|ログイン|ドキュメント|
-|:--------|:---|:---|
+|:--------|:---|:---|:---|
 |`hagetter.rb`|ログまとめサービス([Hagetter](https://hagetter.hansode.club/))の発言を取得します。|不要|[リンク](doc/hagetter.md)|
 
 #### スクリプトの実行

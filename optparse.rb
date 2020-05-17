@@ -42,8 +42,11 @@ class Option
 
     begin
       o.parse(argv)
-    rescue => error
-      STDERR.puts "指定できない引数が含まれています。無視して実行します..."
+    rescue OptionParser::InvalidOption => e
+      STDERR.puts o.to_s
+      STDERR.puts e.message
+      STDERR.puts "指定できない引数が含まれています。"
+      exit
     end
   end
 

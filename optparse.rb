@@ -10,25 +10,39 @@ class Option
       hagetter_id: 0,
       hashtag: "",
       max_id: 0,
-      favourite_threshold: (mode == "user.rb")? 2 : 0,
+      favourite_threshold: ["user.rb", "local_timeline.rb"].include?("mode") ? 2 : 0,
       accept_unlisted_toot: false,
       limit: 20,
       num_of_page: 10,
       debug: false,
     }
 
-    o.on('-s', '--service STRING', 'Specify service hostname') { |v| @opts[:service] = v }
-    o.on('-i', '--account-id VALUE', 'Specify :id for account') { |v| @opts[:account_id] = v.to_i }                                                                     if ["user.rb"].include?(mode)
-    o.on('-g', '--hagetter-id VALUE', 'Specify hagetter status id') { |v| @opts[:hagetter_id] = v.to_i }                                                                if ["hagetter.rb"].include?(mode)
-    o.on('-t', '--hashtag STRING', 'Specify hashtag (except #)') { |v| @opts[:hashtag] = v }                                                                            if ["hashtag.rb"].include?(mode)
-    o.on('-m', '--max-id VALUE', 'Specify initial max_id'){ |v| @opts[:max_id] = v.to_i }                                                                               unless ["hagetter.rb"].include?(mode)
-    o.on('-f', '--favourite-threshold VALUE', "Specify threshold of favourite (default: #{@opts[:favourite_threshold]})"){ |v| @opts[:favourite_threshold] = v.to_i }
-    o.on('-u', '--with-unlisted-toot', 'Accept not only public but also unlisted toot (default: false)'){ |v| @opts[:accept_unlisted_toot] = v }                        unless ["local_timeline.rb"].include?(mode)
-    o.on('-l', '--limit VALUE', 'Specify limit of a number of contents per API page (default: 20)'){ |v| @opts[:limit] = v.to_i }                                       if ["bookmark.rb", "favourite.rb", "hashtag.rb", "local_timeline.rb"].include?(mode)
-    o.on('-n', '--number VALUE', 'Specify page count for API call (default: 10)'){ |v| @opts[:num_of_page] = v.to_i }                                                   unless ["hagetter.rb"].include?(mode)
-    o.on('-v', '--verbose', 'Set verbose mode (default: false)'){ |v| @opts[:debug] = v }
+    @restricts = {
+      "user.rb":           {required: ["s", "i"], mandatory: ["m", "f", "u", "n", "v"]},
+      "hashtag.rb":        {required: ["s", "t"], mandatory: ["m", "f", "l", "n", "v"]},
+      "local_timeline.rb": {required: ["s"],      mandatory: ["m", "f", "l", "n", "v"]},
+      "bookmark.rb":       {required: ["s"],      mandatory: ["m", "f", "u", "l", "n", "v"]},
+      "favourite.rb":      {required: ["s"],      mandatory: ["m", "f", "u", "l", "n", "v"]},
+      "hagetter.rb":       {required: ["g"],      mandatory: ["f", "u"]},
+    }
+    @restricts.each { |key, value| @restricts[key][:available] = value[:required] + value[:mandatory] }
 
-    o.parse(argv)
+    o.on('-s', '--service STRING', 'Specify service hostname') { |v| @opts[:service] = v }                                                                            if @restricts[mode.to_sym][:available].include?("s")
+    o.on('-i', '--account-id VALUE', 'Specify :id for account') { |v| @opts[:account_id] = v.to_i }                                                                   if @restricts[mode.to_sym][:available].include?("i")
+    o.on('-g', '--hagetter-id VALUE', 'Specify hagetter status id') { |v| @opts[:hagetter_id] = v.to_i }                                                              if @restricts[mode.to_sym][:available].include?("g")
+    o.on('-t', '--hashtag STRING', 'Specify hashtag (except #)') { |v| @opts[:hashtag] = v }                                                                          if @restricts[mode.to_sym][:available].include?("t")
+    o.on('-m', '--max-id VALUE', 'Specify initial max_id'){ |v| @opts[:max_id] = v.to_i }                                                                             if @restricts[mode.to_sym][:available].include?("m")
+    o.on('-f', '--favourite-threshold VALUE', "Specify threshold of favourite (default: #{@opts[:favourite_threshold]})"){ |v| @opts[:favourite_threshold] = v.to_i } if @restricts[mode.to_sym][:available].include?("f")
+    o.on('-u', '--with-unlisted-toot', 'Accept not only public but also unlisted toot (default: false)'){ |v| @opts[:accept_unlisted_toot] = v }                      if @restricts[mode.to_sym][:available].include?("u")
+    o.on('-l', '--limit VALUE', 'Specify limit of a number of contents per API page (default: 20)'){ |v| @opts[:limit] = v.to_i }                                     if @restricts[mode.to_sym][:available].include?("l")
+    o.on('-n', '--number VALUE', 'Specify page count for API call (default: 10)'){ |v| @opts[:num_of_page] = v.to_i }                                                 if @restricts[mode.to_sym][:available].include?("n")
+    o.on('-v', '--verbose', 'Set verbose mode (default: false)'){ |v| @opts[:debug] = v }                                                                             if @restricts[mode.to_sym][:available].include?("v")
+
+    begin
+      o.parse(argv)
+    rescue => error
+      STDERR.puts "指定できない引数が含まれています。無視して実行します..."
+    end
   end
 
   def get
@@ -36,7 +50,18 @@ class Option
   end
 
   def command(filename, max_id)
-    "ruby #{filename} -s #{@opts[:service]} -i #{@opts[:account_id]} #{@opts[:hashtag].length > 0 ? "-t #{@opts[:hashtag]} " : ""}-m #{max_id} -f #{@opts[:favourite_threshold]} #{@opts[:accept_unlisted_toot] ? "-u " : ""}-l #{@opts[:limit]} -n #{@opts[:num_of_page]}"
+    c = "ruby bin/mastodon/#{filename}"
+    c = "#{c} -s #{@opts[:service]}"             if @restricts[filename.to_sym][:available].include?("s")
+    c = "#{c} -i #{@opts[:account_id]}"          if @restricts[filename.to_sym][:available].include?("i")
+    c = "#{c} -g #{@opts[:hagetter_id]}"         if @restricts[filename.to_sym][:available].include?("g")
+    c = "#{c} -t #{@opts[:hashtag]}"             if @restricts[filename.to_sym][:available].include?("t")
+    c = "#{c} -m #{max_id}"                      if @restricts[filename.to_sym][:available].include?("m")
+    c = "#{c} -f #{@opts[:favourite_threshold]}" if @restricts[filename.to_sym][:available].include?("f")
+    c = "#{c} -u"                                if @restricts[filename.to_sym][:available].include?("u") && @opts[:accept_unlisted_toot]
+    c = "#{c} -l #{@opts[:limit]}"               if @restricts[filename.to_sym][:available].include?("l")
+    c = "#{c} -n #{@opts[:num_of_page]}"         if @restricts[filename.to_sym][:available].include?("n")
+    c = "#{c} -v"                                if @restricts[filename.to_sym][:available].include?("v") && @opts[:debug]
+    c
   end
 end
 

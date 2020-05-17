@@ -67,5 +67,3 @@ class Option
     c
   end
 end
-
-

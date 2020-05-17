@@ -102,6 +102,7 @@ class MastodonReader
     param = max_id == 0 ? { limit: limit } : { max_id: max_id, limit: limit }
     uri.query = URI.encode_www_form(param)
     res = @http.get(uri,@headers)
+    self.check_response(res.code.to_i)
     return JSON.parse(res.body), res.get_fields('link')[0].match(/max_id=(\d*)>/)[1].to_i
   end
 
@@ -111,6 +112,17 @@ class MastodonReader
       last_id = toot["id"].to_i if last_id > toot["id"].to_i
     end
     last_id
+  end
+
+  def check_response(code)
+    case code
+    when 401
+      STDERR.puts "Mastodonサーバへの認証に失敗しました。アクセストークンが正しく設定されているか確認してください。"
+      exit
+    when 503
+      STDERR.puts "Mastodonサーバが応答しません。しばらく待ってから再度実行してください。"
+      exit
+    end
   end
 end
 

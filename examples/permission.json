@@ -30,7 +30,8 @@
             "unlisted": false
         },
         "evidence": [
-            "https://handon.club/@seibe/104161658574058150"
+            "https://handon.club/@seibe/104161658574058150",
+            "https://handon.club/@seibe/104181978742472811"
         ]
     },
     {
@@ -98,7 +99,8 @@
             "unlisted": true
         },
         "evidence": [
-            "https://handon.club/@Eucritical/104165424748186325"
+            "https://handon.club/@Eucritical/104165424748186325",
+            "https://handon.club/@Eucritical/104178685779904103"
         ]
     },
     {
@@ -218,6 +220,91 @@
         },
         "evidence": [
             "https://handon.club/@rrrwp/104177870800062979"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 39561,
+            "screenname": "@m__i_03__@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@m__i_03__/104178698408496273"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 11873,
+            "screenname": "@fathermacker3@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": false
+        },
+        "evidence": [
+            "https://handon.club/@fathermacker3/104178740883570624"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 15448,
+            "screenname": "@zero_zaki_ghost@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@zero_zaki_ghost/104181990020170628"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 24736,
+            "screenname": "@donmi@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@donmi/104182454083480815"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 17315,
+            "screenname": "@moonpaste@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": false
+        },
+        "evidence": [
+            "https://handon.club/@moonpaste/104182457018278489"
         ]
     }
 ]

@@ -4,6 +4,7 @@ require 'sanitize'
 require 'uri'
 require_relative './weathertyping.rb'
 require_relative './optparse.rb'
+require_relative './permission.rb'
 
 HASHTAG_SEPARATORS = "_\u00B7\u200c"
 HASHTAG_NAME_RE    = "([[:word:]_][[:word:]#{HASHTAG_SEPARATORS}]*[[:alpha:]#{HASHTAG_SEPARATORS}][[:word:]#{HASHTAG_SEPARATORS}]*[[:word:]_])|([[:word:]_]*[[:alpha:]][[:word:]_]*)"
@@ -19,6 +20,7 @@ class Mastodon
     @filename = filename
     @mstdn = MastodonReader.new(@opt.get[:service])
     @max_id = @opt.get[:max_id]
+    @permission = TootPermission.new(@opt.get[:service]) if @opt.get[:check_permission]
   end
 
   def run
@@ -43,7 +45,7 @@ class Mastodon
 
   def create_txt
     @toot_list.each do |toot|
-      if Toot.accept?(toot, @opt.get) then
+      if Toot.accept?(toot, @opt.get) && (!@opt.get[:check_permission] || @permission.ok?(toot)) then
         status = Toot.format(toot)
         print "#{toot["content"]}\n" if @opt.get[:debug]
         print WeatherTyping.entry(status, toot["account"]["username"], "txt") if status.length > 0

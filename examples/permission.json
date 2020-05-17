@@ -306,5 +306,56 @@
         "evidence": [
             "https://handon.club/@moonpaste/104182457018278489"
         ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 26977,
+            "screenname": "@abk@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": false
+        },
+        "evidence": [
+            "https://handon.club/@abk/104182536045545056"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 8597,
+            "screenname": "@LeLievre@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@LeLievre/104182557413183594"
+        ]
+    },
+    {
+        "service": {
+            "type": "mastodon",
+            "server": "handon.club"
+        },
+        "account": {
+            "id": 8597,
+            "screenname": "@LeLievre@handon.club"
+        },
+        "permission": {
+            "public": true,
+            "unlisted": true
+        },
+        "evidence": [
+            "https://handon.club/@LeLievre/104182557413183594"
+        ]
     }
 ]

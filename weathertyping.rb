@@ -2,7 +2,7 @@ require 'nkf'
 require 'natto'
 require 'jumanpp_ruby'
 
-KANJI_RE = /[一-龠々]/
+MORPHOLOGICAL_ANALYZER = "MECAB" # MECAB, JUMANPP
 
 class String
   def yomi
@@ -23,25 +23,21 @@ class WeatherTyping
   def self.entry(question, username, format="txt")
     case format
     when /txt|TXT|text|TEXT/
-      "#{question} (@#{username})\n#{self.yomi(question)}\n"
+      "#{question} (@#{username})\n#{self.yomi(question, MORPHOLOGICAL_ANALYZER)}\n"
     when /xml|XML/
-      "<Word>\n  <Display>#{question} (@#{username})</Display>\n  <Characters>#{self.yomi(question)}</Characters>\n</Word>\n"
+      "<Word>\n  <Display>#{question} (@#{username})</Display>\n  <Characters>#{self.yomi(question, MORPHOLOGICAL_ANALYZER)}</Characters>\n</Word>\n"
     end
   end
 
-  def self.yomi(sentence)
-    y = ""
-    JumanppRuby::Juman.new(force_single_path: :true).parse(sentence) do |word_juman|
-      candidate = word_juman[1].to_s.yomi
-
-      if candidate =~ KANJI_RE then # Jumanppでの解析失敗時→Mecabに回してもう一度ひらがなにしようと試みる
-        tmp = ""
-        Natto::MeCab.new('-Oyomi').parse(candidate) { |word_mecab| tmp = tmp + word_mecab.feature.to_s.chomp.yomi }
-        candidate = tmp
-      end
-
-      y = "#{y}#{candidate}"
+  def self.yomi(sentence, morphological="MECAB")
+    case morphological
+    when "MECAB"
+      Natto::MeCab.new('-Oyomi').parse(sentence).to_s.chomp.yomi
+    when "JUMANPP"
+      yomi = ""
+      JumanppRuby::Juman.new(force_single_path: :true).parse(sentence) { |word| yomi = yomi + word[1].to_s.yomi }
+      yomi
     end
-    y
   end
+
 end

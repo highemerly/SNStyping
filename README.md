@@ -5,19 +5,21 @@ SNSの投稿内容を使ってタイピングアプリ [Weather Typing](https://
 ## Requirements
 
 - Ruby
-- 形態素解析
+- 形態素解析（いずれかが必要）
+    - [Mecab](https://www.mlab.im.dendai.ac.jp/~yamada/ir/MorphologicalAnalyzer/MeCab.html)
 	- [Juman++](http://nlp.ist.i.kyoto-u.ac.jp/index.php?JUMAN++)
-	- [Mecab](https://www.mlab.im.dendai.ac.jp/~yamada/ir/MorphologicalAnalyzer/MeCab.html)
 
 ### 形態素解析
 
-このスクリプトでは，投稿内容をひらがなに変換するため，形態素解析システムを2つ使います（実際にはどちらか片方だけでも良いのですが，完全にひらがなに変換できない場合があるようで，組み合わせて使うことで精度と速度を両立できるようにしています）。
+このスクリプトでは，投稿内容をひらがなに変換するため，形態素解析システムのMecabまたはJuman++のいずれかを使います。初期設定はMecabです。
 
-MacOSの場合，brewがインストールされていれば，以下のようにインストール可能です。Mecabの辞書は環境に合わせて適当に選択してください。
+MacOSの場合，brewがインストールされていれば，以下のようにインストール可能です。Mecabの辞書は環境に合わせて適当に選択してください（ipadicを推奨します）。
 
 ```
-% brew install jumanpp
-% brew install mecab mecab-ipadic
+# Mecabを使う場合（デフォルト）
+ % brew install mecab mecab-ipadic
+# Juman++を使う場合（オプション）
+ % brew install jumanpp
 ```
 
 ## Install

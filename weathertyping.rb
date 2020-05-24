@@ -5,17 +5,33 @@ require 'jumanpp_ruby'
 MORPHOLOGICAL_ANALYZER = "MECAB" # MECAB, JUMANPP
 
 class String
-  def yomi
+  def japanease
+    self.tr('０-９ａ-ｚＡ-Ｚ','0-9a-zA-Z')
+        .gsub(/[[:space:]]/, '')
+        .gsub(/‐|‑|−|‒|–|—|―|ー|〜|−/, 'ー')
+        .tr('【】〈〉《》『』〔〕〖〗｟｠〘〙','「」「」「」「」「」「」「」「」')
+        .gsub('/(‘|’|‛)', '\'')
+        .gsub('/(“|”|‟)', '"')
+        .tr('①-⑨➀-➈㈠-㈨⒈-⒐㊀-㊈', '1-91-91-91-91-9')
+        .tr('𝐀-𝐙𝐚-𝐳𝐴-𝑍𝑎-𝑧𝑨-𝒁𝒂-𝒛', 'A-Za-zA-Za-zA-Za-z')
+        .tr('𝔸-𝕐𝕒-𝕫𝕬-𝖅𝖆-𝖟𝘼-𝙕𝙖-𝙯', 'A-Ya-zA-Za-zA-Za-z')
+        .gsub(/㍾|㍽|㍼|㍻|㋿/, "㍾" => "明治", "㍽" => "大正", "㍼" => "昭和", "㍻" => "平成", "㋿" => "令和")
+        .gsub(/‼|⁇|⁈|⁉/, "‼" => "!!", "⁇" => "？？", "⁈" => "？！", "⁉" => "！？")
+        .tr('･', '・')
+        .gsub(/‥/, '・・')
+        .gsub(/…/, '・・・')
+        .gsub(/♡|♥|♥︎|❤︎/, 'ハート')
+        .gsub(/〄/, 'じす')
+        .gsub(/〆/, 'しめ')
+        .gsub(/(〒|〠|〶)/, '郵便')
+        .gsub(/[ﬀ-ﻼ|‖-‗|†-ⸯ|㈀-㏾|𐀀-🝳|А-е]+/, '')
+        .gsub(/[가-힣]+/, '')
+        .tr('\\', '')
+  end
+  def hiragana
     NKF.nkf('-w -X', self)
        .tr('ァ-ン','ぁ-ん')
        .tr('０-９ａ-ｚＡ-Ｚ','0-9a-zA-Z')
-       .tr('：；＜＞［］｛｝',':;<>[]{}')
-       .tr('？！＄％＃＆＊＠￥','?!$%#&*@¥')
-       .gsub(/[[:space:]]/, '')
-       .gsub(/(〜|−|—)/, 'ー')
-       .gsub(/[★☆※○×→←↑↓]/, '')
-       .tr('･', '・')
-       .tr('\\', '')
   end
 end
 
@@ -32,10 +48,10 @@ class WeatherTyping
   def self.yomi(sentence, morphological="MECAB")
     case morphological
     when "MECAB"
-      Natto::MeCab.new('-Oyomi').parse(sentence).to_s.chomp.yomi
+      Natto::MeCab.new('-Oyomi').parse(sentence.japanease).to_s.chomp.hiragana
     when "JUMANPP"
       yomi = ""
-      JumanppRuby::Juman.new(force_single_path: :true).parse(sentence) { |word| yomi = yomi + word[1].to_s.yomi }
+      JumanppRuby::Juman.new(force_single_path: :true).parse(sentence.japanease) { |word| yomi = yomi + word[1].to_s.hiragana }
       yomi
     end
   end

@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../mastodon.rb'
+require_relative '../src/mastodon.rb'
 
 class WeatherTypingTest < Minitest::Test
     def test_yomi

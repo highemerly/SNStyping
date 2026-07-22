@@ -1,0 +1,38 @@
+name: Deploy Realtime Worker
+
+# main への push で Cloudflare Workers(realtime/)を自動デプロイする。
+# Vercel(Next.js本体)は Vercel のネイティブ Git 連携が別途デプロイするので、ここでは扱わない。
+on:
+  push:
+    branches: [main]
+    # realtime に関わる変更のときだけ動かす(フロントだけの変更で無駄に再デプロイしない)
+    paths:
+      - 'realtime/**'
+      - 'lib/engine/words.js' # room.mjs がここを import している
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch: {} # 手動実行も可能に
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # 連続 push 時に古いデプロイが後から上書きしないよう直列化
+    concurrency:
+      group: deploy-worker
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy to Cloudflare Workers
+        run: npx wrangler deploy -c realtime/wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

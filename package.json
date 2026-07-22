@@ -1,0 +1,31 @@
+{
+  "name": "snstyping",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "dev:realtime": "wrangler dev -c realtime/wrangler.jsonc --port 8787",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "deploy:realtime": "wrangler deploy -c realtime/wrangler.jsonc",
+    "test": "node --test tests/typing.test.mjs tests/kana.test.mjs tests/game.test.mjs tests/align.test.mjs tests/ghost.test.mjs",
+    "words:sns": "node scripts/fetch-sns-words.mjs"
+  },
+  "dependencies": {
+    "next": "16.2.10",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "kuromoji": "^0.1.2",
+    "typescript": "^5.9.0",
+    "wrangler": "^4.0.0"
+  },
+  "overrides": {
+    "sharp": "^0.35.3"
+  }
+}

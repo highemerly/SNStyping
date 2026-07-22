@@ -1,0 +1,18 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# production / deploy
+.vercel
+realtime/.wrangler/
+
+# local env & tooling
+.env*.local
+.claude/settings.local.json
+
+# os
+.DS_Store

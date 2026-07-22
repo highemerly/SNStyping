@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "snstyping-realtime",
+  "main": "index.mjs",
+  "compatibility_date": "2026-06-01",
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "Room" },
+      { "name": "DIRECTORY", "class_name": "Directory" },
+      { "name": "STATS", "class_name": "Stats" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Room"] },
+    { "tag": "v2", "new_sqlite_classes": ["Directory"] },
+    { "tag": "v3", "new_sqlite_classes": ["Stats"] }
+  ],
+  "vars": {
+    "DICT_BASE_URL": "https://highemerly.github.io/snstyping-dict/"
+  }
+}

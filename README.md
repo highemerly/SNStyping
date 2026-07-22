@@ -29,12 +29,24 @@ http://localhost:3100 を開く。
 
 ## デプロイ
 
+**`main` に push すれば自動でリリースされる**(手動コマンド不要)。2つのデプロイ先が並行して動く:
+
+| 対象 | 仕組み | トリガー |
+|------|--------|---------|
+| Cloudflare Workers(`realtime/`) | GitHub Actions（[.github/workflows/deploy-worker.yml](.github/workflows/deploy-worker.yml)） | `main` push（`realtime/**`・`lib/engine/words.js`・`package*.json` 変更時のみ）/ 手動 `workflow_dispatch` |
+| Next.js 本体 | Vercel ネイティブ Git 連携 | `main` push（全変更）/ PR はプレビューデプロイ |
+
+### 必要な設定
+- **GitHub Secrets**（Actions 用 / リポジトリ Settings → Secrets）: `CLOUDFLARE_API_TOKEN`（「Edit Cloudflare Workers」テンプレートで発行）, `CLOUDFLARE_ACCOUNT_ID`
+- **Vercel 環境変数**（Production）: `.env.local` の一式（`CONTRIBUTE_SESSION_SECRET` / `BOT_MASTODON_*` / `GITHUB_BOT_PAT` / `GITHUB_DICT_REPO`）+ `NEXT_PUBLIC_REALTIME_URL`（Worker のURL、例 `https://snstyping-realtime.<account>.workers.dev`）+ 独自ドメイン運用時は `NEXT_PUBLIC_SITE_URL`
+
+### 手動デプロイ（フォールバック）
+CI を介さず直接デプロイしたい場合:
+
 ```sh
 npm run deploy:realtime          # Worker を Cloudflare にデプロイ(要 wrangler login)
+npx vercel --prod                # Next.js 本体を Vercel にデプロイ
 ```
-
-Next.js 側は Vercel 等へ。環境変数 `NEXT_PUBLIC_REALTIME_URL` に Worker のURL
-(例: `https://snstyping-realtime.<account>.workers.dev`)を設定する。
 
 ## 遊び方
 

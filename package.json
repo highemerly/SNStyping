@@ -13,6 +13,7 @@
     "words:sns": "node scripts/fetch-sns-words.mjs"
   },
   "dependencies": {
+    "mecab-web-worker": "^0.3.2",
     "next": "16.2.10",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

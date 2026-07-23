@@ -1,7 +1,7 @@
 // 投稿フローで扱う辞書TSVの 生成・パース・検証。
 // snstyping-dict 側の Validate(scripts/lib.mjs)と齟齬が出ないようにする。
 
-import { isTypeable } from '@/lib/sns/pipeline';
+import { isTypeable } from '@/lib/sns/reading-core';
 
 // snstyping-dict/scripts/lib.mjs の READING_RE と同期させること。
 // エンジンが受理できる読み仮名の文字集合(ひらがな・カタカナ・ー・記号・ASCII印字可能)。

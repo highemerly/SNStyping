@@ -823,7 +823,7 @@ kbd {
 .error-note { text-align: left; color: var(--miss); font-size: 0.95rem; line-height: 1.8; }
 
 /* ふりがな編集リスト */
-.entry-list { display: flex; flex-direction: column; max-height: 460px; overflow-y: auto; }
+.entry-list { display: flex; flex-direction: column; }
 .entry-row {
   display: grid;
   grid-template-columns: auto 1fr;

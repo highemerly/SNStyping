@@ -24,10 +24,10 @@
     "@types/react-dom": "^19.2.0",
     "kuromoji": "^0.1.2",
     "typescript": "^5.9.0",
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.131.0"
   },
   "overrides": {
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "undici": "^7.29.0"
   }
 }

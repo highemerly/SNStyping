@@ -17,8 +17,8 @@ while IFS= read -r file; do
     # 動作に影響しないもの（ドキュメント・Claude Code の設定・ローカル hook・GitHub の設定・
     # リリースノートの分類・手元用の設定）
     *.md | docs/* | .claude/* | .githooks/* | .github/rulesets/* | .github/renovate.json5 | .github/release.yml | .gitignore) ;;
-    # main への push でしか動かない（ブランチでは確かめようがない）
-    .github/workflows/deploy-worker.yml) ;;
+    # タグ push・手での実行でしか動かない（ブランチでは確かめようがない）
+    .github/workflows/release.yml | .github/workflows/tag-release.yml) ;;
     *) checks=true ;;
   esac
 done < <(git diff --name-only "$base" HEAD)

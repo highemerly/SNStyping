@@ -1,0 +1,73 @@
+name: Tag a release
+
+# Actions の画面のボタン1つでリリースする（docs/development.md「リリース」）。
+# 前回の vX.Y.Z タグから選んだ上げ方で次の版を計算し、main の先頭にタグを打って release.yml を呼ぶ。
+#
+# GITHUB_TOKEN で push したタグでは、ほかのワークフロー（release.yml の on: push）は起動しない。
+# だから release.yml を直接呼ぶ（PAT が要らず、二重にも走らない）。
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'patch = fixes and dependency updates only / minor = new features / major = breaking changes'
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+# 同時に走ると同じ版を打とうとするので1つずつ（キャンセルはしない）
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Compute the next version and push the tag
+        id: tag
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Run this workflow on main (got $GITHUB_REF)"
+            exit 1
+          fi
+          prev="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || true)"
+          if [ -z "$prev" ]; then
+            echo "::error::No previous vX.Y.Z tag. Push the first tag manually (git tag v1.0.0 && git push origin v1.0.0)"
+            exit 1
+          fi
+          if [ -z "$(git log --oneline "$prev..HEAD")" ]; then
+            echo "::error::No commits since $prev"
+            exit 1
+          fi
+          IFS=. read -r major minor patch <<< "${prev#v}"
+          case "$BUMP" in
+            major) version="$((major + 1)).0.0" ;;
+            minor) version="$major.$((minor + 1)).0" ;;
+            patch) version="$major.$minor.$((patch + 1))" ;;
+          esac
+          git tag "v$version"
+          git push origin "v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Tagged **v$version** (previous: $prev, bump: $BUMP)" >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    needs: tag
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ needs.tag.outputs.version }}
+    secrets: inherit
+    # 呼ばれる側のジョブが使う権限の和（足りないと呼ばれる側が起動時に落ちる）
+    permissions:
+      contents: write

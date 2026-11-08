@@ -1,0 +1,10 @@
+# GitHub Release の自動生成ノートの分類（release.yml の release ジョブが使う）。
+# PR は上から最初に合った見出しに入るので、依存の更新を * より先に除く。
+changelog:
+  categories:
+    - title: Changes
+      labels: ['*']
+      exclude:
+        labels: [dependencies]
+    - title: Dependencies
+      labels: [dependencies]

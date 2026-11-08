@@ -1,0 +1,42 @@
+name: Checks
+
+# unit テスト・Next.js の本番ビルド（型検査を含む）・Worker のバンドルを確かめる再利用可能ワークフロー。
+# ci.yml（ブランチ push・差分で必要なときだけ）から呼ぶ。CI ステップの単一の定義元。
+on:
+  workflow_call:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # 既定は 360 分。固まったときに早く赤にして Re-run できるように（ふだんは1〜2分）
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test (node --test)
+        run: npm test
+
+      # next build は TypeScript の型検査も行うので、tsc は別に回さない。
+      # テストが落ちてもビルドと Worker まで走らせ、1回の実行で全ての問題を出す
+      # （always() ではなく !cancelled() なので手動キャンセルは即座に止まる）。
+      - name: Build (next build)
+        if: ${{ !cancelled() }}
+        run: npx next build
+
+      # Worker（realtime/）を本番と同じ設定でバンドルだけして、デプロイはしない。
+      # import の解決や wrangler.jsonc の誤りをマージ前に見つける。
+      - name: Bundle Worker (wrangler deploy --dry-run)
+        if: ${{ !cancelled() }}
+        run: npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker" -c realtime/wrangler.jsonc

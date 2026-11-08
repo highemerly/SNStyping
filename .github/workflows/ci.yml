@@ -1,0 +1,59 @@
+name: CI
+
+# テストゲート。main 以外のブランチへの push で、変更が影響しうるジョブだけを回す
+# （checks.yml＝unit テスト・next build・Worker のバンドル）。
+# どれを回すかは .github/scripts/ci-targets.sh が main との差分から決める（方針は docs/development.md「CI」）。
+#
+# main への push では回さない: squash マージ前に同じ中身をブランチで通しているため。
+on:
+  push:
+    branches:
+      - '**'
+      - '!main'
+
+# 同一ブランチの古い実行はキャンセルして CI 分を節約する。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      checks: ${{ steps.targets.outputs.checks }}
+    steps:
+      # main との merge-base を取るため履歴ごと取る（既定の depth=1 だと origin/main が無い）。
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Decide which jobs to run
+        id: targets
+        run: .github/scripts/ci-targets.sh
+
+  checks:
+    needs: changes
+    if: needs.changes.outputs.checks == 'true'
+    uses: ./.github/workflows/checks.yml
+
+  # main の ruleset の必須チェックはこのジョブだけ。ジョブを差分で間引くと、スキップされたジョブには
+  # 結果が付かず、個別に必須にしているとマージできなくなるため、結果をここで1つにまとめる。
+  # 成功とスキップは通し、失敗とキャンセル（タイムアウト等）は落とす。実行ごとキャンセルされたとき
+  # （同じブランチへの新しい push）は走らせない＝古いコミットに失敗を付けない。
+  ci-result:
+    needs: [changes, checks]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail if any selected job failed
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS"
+          if [ "$FAILED" = "true" ]; then exit 1; fi

@@ -24,6 +24,8 @@ npm run dev            # Next.js (port 3100)
 
 http://localhost:3100 を開く。
 
+ブランチと PR の運用・CI は [docs/development.md](docs/development.md) を参照。
+
 > Node 25 では Next.js が依存する sharp のインストールスクリプトが誤動作するため、
 > `package.json` の `overrides` で sharp 0.35 系に固定している。
 

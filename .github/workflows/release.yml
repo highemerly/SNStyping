@@ -1,0 +1,230 @@
+name: Release
+
+# リリース＝本番へのデプロイ。v* タグで次を順に行う（docs/development.md「リリース」）:
+#   全検査（ブランチで差分により省いたものも全部）
+#   → Worker（realtime/）をデプロイ（前回のタグから Worker に関わるファイルが変わったときだけ）
+#   → Next.js を Vercel へデプロイ（CLI。main の自動デプロイは vercel.json で止めている）
+#   → 本番の疎通確認 → GitHub Release
+# GitHub Release がある版＝本番に出た版。
+#
+# workflow_dispatch は置かない（任意のブランチ・任意の版名で本番に出せてしまうため）。
+# 作り直しは失敗した実行を Actions の画面で Re-run する。手で出すリリースは tag-release.yml から呼ばれる。
+on:
+  push:
+    tags: ['v*']
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version without "v" (e.g., 1.2.3). The tag vX.Y.Z must already point at github.sha'
+        type: string
+        required: true
+
+# 同時に2つの版を本番へ出さない（キャンセルもしない＝途中で止まったデプロイを残さない）
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  # 本番の画面の URL（公開しているもの）。独自ドメインへ移したらここも直す
+  SITE_URL: https://snstyping.vercel.app
+  # Worker に入るファイル。realtime/ の外から import するものを足したら、ここにも足す
+  WORKER_PATHS: realtime/ lib/engine/words.js
+  # renovate: datasource=npm depName=vercel
+  VERCEL_CLI_VERSION: 65.12.1
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      prev_tag: ${{ steps.meta.outputs.prev_tag }}
+      worker_changed: ${{ steps.meta.outputs.worker_changed }}
+      has_do_migration: ${{ steps.meta.outputs.has_do_migration }}
+    steps:
+      # 前回のタグとの差分を取るため履歴とタグごと取る
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # 入力は run: に ${{ }} で直接埋めず、env: で渡してシェル変数として読む
+      # （tag-release.yml から呼ばれたときは github.ref が main なので、ref からは版が取れない）
+      - name: Resolve version and what changed since the previous release
+        id: meta
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          version="${INPUT_VERSION:-${GITHUB_REF#refs/tags/v}}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must be X.Y.Z (got '$version')"
+            exit 1
+          fi
+          if [ "$(git rev-parse "v$version^{commit}")" != "$(git rev-parse HEAD)" ]; then
+            echo "::error::Tag v$version does not point at $GITHUB_SHA"
+            exit 1
+          fi
+
+          # --match で legacy-2020-ruby など版でないタグを拾わない
+          prev_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' HEAD^ 2>/dev/null || true)"
+
+          if [ -z "$prev_tag" ]; then
+            # 最初のリリース。Worker は必ず出す。既存の DO マイグレーションはタグ以前に本番へ当たっている
+            worker_changed=true
+            has_do_migration=false
+          else
+            # Worker を再デプロイすると対戦中の部屋が切れるので、変わっていなければ出さない
+            # shellcheck disable=SC2086
+            if git diff --quiet "$prev_tag" HEAD -- $WORKER_PATHS; then worker_changed=false; else worker_changed=true; fi
+            # DO のマイグレーションは wrangler deploy で自動で当たるが戻せない（wrangler rollback でも越えられない）
+            migration_tags() { grep -o '"tag": *"[^"]*"' | sort; }
+            if [ "$(git show "$prev_tag:realtime/wrangler.jsonc" | migration_tags)" = "$(migration_tags < realtime/wrangler.jsonc)" ]; then
+              has_do_migration=false
+            else
+              has_do_migration=true
+            fi
+          fi
+
+          {
+            echo "version=$version"
+            echo "prev_tag=$prev_tag"
+            echo "worker_changed=$worker_changed"
+            echo "has_do_migration=$has_do_migration"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "## Release v$version"
+            echo "- Previous tag: ${prev_tag:-(none)}"
+            echo "- Worker changed: $worker_changed"
+            echo "- Durable Object migration: $has_do_migration"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ブランチの CI と同じ定義を呼ぶ（二重定義しない）
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  # 新しい画面は新しい Worker を前提にしうるので、Worker を先に出す
+  deploy-worker:
+    needs: [meta, checks]
+    if: needs.meta.outputs.worker_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Secrets は Environment「release」に置き、デプロイ元を main と v* タグに限っている
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Cloudflare Workers
+        run: npx wrangler deploy -c realtime/wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  deploy-vercel:
+    needs: [meta, checks, deploy-worker]
+    # Worker を出さない版（skipped）でも進む。Worker のデプロイが落ちたら進まない
+    if: >-
+      ${{ !cancelled()
+      && needs.meta.result == 'success'
+      && needs.checks.result == 'success'
+      && (needs.deploy-worker.result == 'success' || needs.deploy-worker.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: read
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global "vercel@$VERCEL_CLI_VERSION"
+
+      # 本番の環境変数（NEXT_PUBLIC_* はビルド時に埋め込まれる）を取ってきて、ここでビルドしたものをそのまま出す
+      - name: Pull production settings
+        run: vercel pull --yes --environment=production
+
+      - name: Build
+        run: vercel build --prod
+
+      - name: Deploy to Vercel (production)
+        run: vercel deploy --prebuilt --prod
+
+      # 出したものそのものを確かめる唯一の検査。画面と Worker が本番で応答するかだけを見る。
+      # Worker の URL は Vercel の本番の環境変数から読む（アカウントのサブドメインをログに出さない）
+      - name: Smoke test production
+        run: |
+          realtime_url="$(sed -n 's/^NEXT_PUBLIC_REALTIME_URL="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' .vercel/.env.production.local)"
+          if [ -z "$realtime_url" ]; then
+            echo "::error::NEXT_PUBLIC_REALTIME_URL is not set in the production environment"
+            exit 1
+          fi
+          echo "::add-mask::$realtime_url"
+          check() {
+            code="$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-all-errors --max-time 20 "$1")"
+            echo "$2: $code"
+            [ "$code" = "200" ]
+          }
+          check "$SITE_URL/" "Site" && check "${realtime_url%/}/api/rooms" "Worker"
+
+  release:
+    needs: [meta, deploy-vercel]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # generate-notes API も Release の作成も write が要る
+    steps:
+      # ノートは GitHub の自動生成（前回のタグからマージされた PR の一覧。分類は .github/release.yml）。
+      # 前回のタグは明示する（省くと前回の「Release」が起点になり、範囲がずれることがある）
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          PREV_TAG: ${{ needs.meta.outputs.prev_tag }}
+          HAS_DO_MIGRATION: ${{ needs.meta.outputs.has_do_migration }}
+        run: |
+          {
+            if [ "$HAS_DO_MIGRATION" = "true" ]; then
+              echo "> [!WARNING]"
+              echo "> This release includes a Durable Object migration. The Worker cannot be rolled back past it."
+              echo
+            fi
+            args=(-f tag_name="v$VERSION" -f target_commitish="$GITHUB_SHA")
+            if [ -n "$PREV_TAG" ]; then args+=(-f previous_tag_name="$PREV_TAG"); fi
+            gh api -X POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" "${args[@]}" --jq .body
+          } > "$RUNNER_TEMP/notes.md"
+
+      # タグ名は $GITHUB_REF_NAME ではなく版から作る（tag-release.yml から呼ばれたときは ref が main）
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "v$VERSION" --notes-file "$RUNNER_TEMP/notes.md"

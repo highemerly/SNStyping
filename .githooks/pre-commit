@@ -1,0 +1,11 @@
+#!/bin/sh
+# main への直接コミットを手元で止める（変更は必ずブランチ → PR）。
+# サーバー側は GitHub の ruleset が push を拒否するが、そこで初めて気づくと
+# コミット済みの作業をブランチへ移し替える手間が出るため、コミット時点で弾く。
+# 有効化（clone ごとに1回）: git config core.hooksPath .githooks
+branch=$(git symbolic-ref --quiet --short HEAD)
+if [ "$branch" = "main" ]; then
+  echo "pre-commit: main へは直接コミットできません。ブランチを切ってください:" >&2
+  echo "  git switch -c <branch-name>" >&2
+  exit 1
+fi

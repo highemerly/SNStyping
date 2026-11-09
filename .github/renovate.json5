@@ -1,0 +1,78 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  // customManagers:githubActionsVersions: ワークフローの env に「# renovate: datasource=… depName=…」の
+  // コメント付きで書いた版（release.yml の VERCEL_CLI_VERSION）も更新の対象にする。
+  extends: ['config:recommended', 'customManagers:githubActionsVersions'],
+  timezone: 'Asia/Tokyo',
+  // 週2回にまとめる（毎日 PR が来ると確認が追いつかず、週1だと間隔が空きすぎる）。
+  schedule: ['before 9am on monday and thursday'],
+  // 既定は1時間に2件まで。App は数時間おきにしか動かないので、枠を絞ると更新が何週も持ち越される。
+  // 同時に開く数の上限（prConcurrentLimit、既定10）は、CI が壊れたときに溜まり続けないよう残す。
+  prHourlyLimit: 0,
+  labels: ['dependencies'],
+  // PR を github.com/pulls の「Assigned to you」にまとめる（自動マージする PR は、失敗したときだけ assign される）
+  assignees: ['highemerly'],
+  // 間接依存（lockfile だけにある版）も週1で更新する。影響が広いので手でマージする。
+  lockFileMaintenance: {
+    enabled: true,
+  },
+  // メジャーはコード側の対応が要るので、着手するときに Dependency Dashboard で承認して PR を作らせる。
+  major: {
+    dependencyDashboardApproval: true,
+  },
+  packageRules: [
+    {
+      // package.json の範囲（^x.y.z）の下限も上げる。package.json を見れば実際に入っている版が分かる状態を保つ。
+      // npm に限る（setup-node の 24 などまで細かい版に固定されるため）。
+      matchManagers: ['npm'],
+      rangeStrategy: 'bump',
+    },
+    {
+      // 乗っ取られて公開された版は数日以内に取り下げられることが多いため、公開から3日待つ。
+      matchDatasources: ['npm'],
+      minimumReleaseAge: '3 days',
+    },
+    {
+      // Node のメジャーは CI（setup-node）・Vercel の Node の設定・@types/node を揃えて上げるため1つの PR にする。
+      matchDepNames: ['node', 'nodejs', '@types/node'],
+      matchUpdateTypes: ['major'],
+      groupName: 'Node.js major',
+    },
+    {
+      // 型定義は本体と同じ PR で上げる（React のメジャー・マイナーで型だけずれるのを防ぐ）。
+      matchPackageNames: ['react', 'react-dom', '@types/react', '@types/react-dom'],
+      groupName: 'react monorepo',
+    },
+    {
+      // マイナー・パッチは CI（unit・next build・Worker のバンドル・E2E）が緑なら自動でマージする。
+      // メジャー・lockfile の一括更新は手でマージする。
+      // main にマージしても本番には出ない（v* タグでリリースしたときに出る。docs/development.md「依存の更新」）。
+      matchUpdateTypes: ['minor', 'patch'],
+      automerge: true,
+    },
+    {
+      // CI が緑でも確かめていないもの。1つの PR に1つでも automerge: false の更新があれば、その PR は自動でマージされない。
+      // - next・react・react-dom・@types/react*: 見た目と挙動の土台。E2E は画面が開けるかしか見ていない
+      // - mecab-web-worker・kuromoji: ふりがな（読み）の出力に効く 0.x。マイナーでも互換を崩しうるのに、テストが無い
+      // - sharp: overrides で版を決めている画像処理（next の画像最適化）。0.x
+      // 0.x の依存を足したら、ここにも足す。
+      matchPackageNames: [
+        'next',
+        'react',
+        'react-dom',
+        '@types/react',
+        '@types/react-dom',
+        'mecab-web-worker',
+        'kuromoji',
+        'sharp',
+      ],
+      automerge: false,
+    },
+    {
+      // タグ時にしか動かないワークフロー（Actions の版と VERCEL_CLI_VERSION）。PR の CI では何も走らず、
+      // ci-result がスキップのまま緑になる＝何も確かめずにマージされるため。
+      matchFileNames: ['.github/workflows/release.yml', '.github/workflows/tag-release.yml'],
+      automerge: false,
+    },
+  ],
+}

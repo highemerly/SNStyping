@@ -93,6 +93,54 @@ npm run e2e
 リトライはしない（落ちを隠さない）。画面の操作（タイピング）や、contribute の Mastodon・GitHub 連携はまだ見ていない。
 落ちたら CI の実行の Artifacts（`e2e-test-results`）の trace を `npx playwright show-trace <zip>` で開く。
 
+## 依存の更新
+
+[Renovate](../.github/renovate.json5)（GitHub App）が PR を出す。月・木の朝9時前（日本時間）にまとめて、npm の版は公開から3日待つ。
+**自動でマージされても main に入るだけで、本番には出ない。** 本番へはリリース（下）で出す。
+
+### 自動マージの対象と除外
+
+マイナー・パッチは、CI（ci-result＝unit・next build・Worker のバンドル・E2E）が緑なら GitHub の auto-merge でマージされる。
+1つの PR に1つでも除外の更新が入っていれば、その PR は手でマージする。
+
+| 依存 | 自動マージ | 理由（CI が何を確かめているか） |
+|---|---|---|
+| `typescript`・`@types/node` | する | next build の型検査で確かめている |
+| `wrangler` | する | Worker のバンドル（dry-run）と E2E の `wrangler dev` で確かめている |
+| `@playwright/test` | する | E2E そのもの |
+| GitHub Actions（ci・checks・e2e のワークフロー） | する | その PR の CI で動く |
+| `next`・`react`・`react-dom`・`@types/react*` | しない | 見た目と挙動の土台。E2E は画面が開けるかしか見ていない |
+| `mecab-web-worker`・`kuromoji` | しない | ふりがなの出力に効く 0.x。マイナーでも互換を崩しうるのに、テストが無い |
+| `sharp`（`overrides`） | しない | next の画像最適化。0.x |
+| `release.yml`・`tag-release.yml` の中身（Actions・`VERCEL_CLI_VERSION`） | しない | タグでしか動かず、PR の CI は何も回らないまま緑になる。同じ Action を使う他のワークフローの更新も同じ PR に入るので、Actions の更新は実質すべて手でマージする |
+| メジャー | しない | Dependency Dashboard（Issue）でチェックを入れたときだけ PR を作る |
+| lockfile の一括更新（週1） | しない | 間接依存がまとめて動き、影響が広い |
+
+0.x の依存を足したら、[renovate.json5](../.github/renovate.json5) の除外にも足す。
+
+### PR が来たら
+
+- 見るのは、自動マージされずに残ったものだけ。lockfile の差分で、実際に入る版が変わるかを確かめる
+- 手でマージするもの（next・react など）は、Vercel のプレビューで画面を触ってからマージする
+- 本番に入れたいもの（脆弱性の修正など）をマージしたら、パッチ版をリリースする
+- 手元では、作業を始める前に `git pull && npm ci` で入れ直す（自動マージされたものも入る）
+
+### 脆弱性
+
+Dependabot alerts（有効）を Renovate が読み、`schedule` と 3日待ちを飛ばして PR（題名の末尾に `[SECURITY]`）を出す。
+メジャーでも承認を待たない。自動マージするかは上の表のとおり。**マージしたらパッチ版をリリースする。**
+
+- PR が来るのは package.json に書いた直接の依存だけ。間接依存は lockfile の一括更新か、親の更新で直る
+  （急ぐときは Dashboard の lock file maintenance にチェックを入れる）
+- Dependabot の security updates と version updates は使わない（Renovate の PR と重なる）
+- 開いているアラート: `gh api 'repos/highemerly/SNStyping/dependabot/alerts?state=open&per_page=100'`
+
+### インストールスクリプト
+
+npm 11 は、`allowScripts`（package.json）で許可していない依存のインストールスクリプトを実行しない。
+`esbuild`・`workerd`・`fsevents` のスクリプトは無くても動く（CI と E2E で確かめた）ので、`false` と明示して警告を消している。
+新しく警告が出たら、`npm install-scripts ls` で中身を見て、要るなら `approve`、要らなければ `deny` する。
+
 ## リリース
 
 **リリース＝本番へのデプロイ。`v*` タグで行う。** main へのマージではどこにもデプロイされない

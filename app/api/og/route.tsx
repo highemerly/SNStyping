@@ -3,7 +3,7 @@
 // Google Fonts のサブセットAPIから取得する(text= 指定で数KBに収まる)。
 
 import { ImageResponse } from 'next/og';
-import { parseShareParams } from '@/lib/share';
+import { parseShareParams, shareHeadline } from '@/lib/share';
 
 async function loadGoogleFont(family: string, text: string): Promise<ArrayBuffer> {
   const url = `https://fonts.googleapis.com/css2?family=${family}&text=${encodeURIComponent(text)}`;
@@ -36,6 +36,8 @@ export async function GET(req: Request) {
 async function renderOg(req: Request) {
   const { searchParams } = new URL(req.url);
   const r = parseShareParams(Object.fromEntries(searchParams));
+  // 時間指定はスコア、ワード数指定で打ち切った結果はクリアタイムを大きく出す
+  const head = shareHeadline(r);
 
   const stats = [
     { label: 'KPM', value: String(r.kpm) },
@@ -46,7 +48,7 @@ async function renderOg(req: Request) {
 
   // サブセット取得用に、画像に登場する文字を全部集める
   const chars =
-    'SNS Typing スコア 0123456789.%ブラウザで遊べる日本語ローマ字タイピングゲーム' +
+    'SNS Typing スコア タイム秒 0123456789.%ブラウザで遊べる日本語ローマ字タイピングゲーム' +
     stats.map((s) => s.label + s.value).join('') +
     r.rule;
 
@@ -89,7 +91,7 @@ async function renderOg(req: Request) {
             flexGrow: 1,
           }}
         >
-          <div style={{ fontSize: 30, color: MUTED }}>スコア</div>
+          <div style={{ fontSize: 30, color: MUTED }}>{head.label}</div>
           <div
             style={{
               fontSize: 170,
@@ -99,8 +101,8 @@ async function renderOg(req: Request) {
               color: 'transparent',
             }}
           >
-            {/* 数値のまま子要素に渡すと Satori が invalid child 扱いで落ちるため文字列化 */}
-            {String(r.score)}
+            {/* 数値のまま子要素に渡すと Satori が invalid child 扱いで落ちるため文字列化(shareHeadline で文字列) */}
+            {head.value}
           </div>
         </div>
 

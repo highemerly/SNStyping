@@ -28,7 +28,7 @@ env:
   # 本番の画面の URL。ドメインを変えたらここも直す
   SITE_URL: https://snstyping.piyo.me
   # Worker に入るファイル。realtime/ の外から import するものを足したら、ここにも足す
-  WORKER_PATHS: realtime/ lib/engine/words.js
+  WORKER_PATHS: realtime/ lib/engine/words.js lib/engine/rule.js
   # renovate: datasource=npm depName=vercel
   VERCEL_CLI_VERSION: 65.12.1
 

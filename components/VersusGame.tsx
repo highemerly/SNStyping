@@ -8,6 +8,7 @@
 // 同時対戦できる人数は部屋を作った人が決めた上限(2〜4人)まで。満員の部屋に入ると
 // 自動的に観戦者になり、全プレイヤーの打鍵の様子を並べて見られる。
 // 対戦画面は「自分=アクセント枠の大パネル」「相手=小型カード(進捗+打鍵の様子)」。
+// ルールは時間指定(スコアで順位)とワード数指定(指定数を打ち切るまでのタイムで順位)の2種類。
 // 対戦中に誰かが切断しても2人以上残っていれば試合は続行される。
 // Esc はどの画面でも即退出せず、確認ダイアログを挟む。
 
@@ -15,8 +16,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import WordArea, { RomajiText } from './WordArea';
 import { usePlayerGame } from './usePlayerGame';
+import { HudClock, RemainBar } from './Hud';
 import SettingsModal from './SettingsModal';
-import { SegmentedControl, Select } from './Controls';
+import { Select } from './Controls';
+import { AmountControl, ModeControl } from './RuleFields';
+import type { GameResult, PlayRule } from './modeTypes';
+import { compareResults, formatTimeSec, ruleAmountLabel, sanitizeRule } from '@/lib/engine/rule';
 import { loadInputModePref, loadNamePref, setNamePref, type InputMode } from './settings';
 import { loadSoundPref, soundCount, soundGo, soundTick } from './sound';
 import { roomWsUrl } from '@/lib/realtime';
@@ -30,10 +35,7 @@ type Role = 'player' | 'spectator';
 
 const PROPOSAL_STORAGE_KEY = 'snstyping:proposal';
 
-interface Rule {
-  durationSec: number;
-  wordListId: string;
-}
+type Rule = PlayRule;
 
 interface Word {
   display: string;
@@ -50,14 +52,7 @@ interface Progress {
   rest: string;
 }
 
-interface Stats {
-  score: number;
-  hits: number;
-  misses: number;
-  completedWords: number;
-  kpm: number;
-  accuracy: number;
-}
+type Stats = GameResult;
 
 // 自分以外のプレイヤー(観戦者から見た場合は全プレイヤー)のロビー状態
 interface PeerInfo {
@@ -68,7 +63,7 @@ interface PeerInfo {
 }
 
 const PROGRESS_ZERO: Progress = { score: 0, misses: 0, kpm: 0, completedWords: 0, wordProgress: 0, typed: '', rest: '' };
-const DEFAULT_RULE: Rule = { durationSec: 60, wordListId: 'basic' };
+const DEFAULT_RULE: Rule = sanitizeRule(null);
 
 export default function VersusGame({ code }: { code: string }) {
   const router = useRouter();
@@ -124,8 +119,9 @@ export default function VersusGame({ code }: { code: string }) {
   useEffect(() => {
     fetchCatalog().then(setCatalog);
   }, []);
-  const ruleLabel = (rule: Rule) =>
-    `${findWordList(catalog, rule.wordListId)?.title ?? rule.wordListId} / ${rule.durationSec}秒`;
+  // mode の無いルール(ワード数指定の導入前に作られた部屋)は時間指定として表示される
+  const ruleLabel = (rule: { mode?: string; durationSec: number; wordCount?: number; wordListId: string }) =>
+    `${findWordList(catalog, rule.wordListId)?.title ?? rule.wordListId} / ${ruleAmountLabel(rule)}`;
 
   // ロビー(ルール決定)まわり
   const [ruleType, setRuleType] = useState<'propose' | 'host'>('propose');
@@ -200,7 +196,7 @@ export default function VersusGame({ code }: { code: string }) {
       const line = g.current;
       const typed = line?.typedKeys ?? '';
       const rest = line?.remainingText() ?? '';
-      const usedSec = g.durationSec - g.remainingSec(performance.now());
+      const usedSec = g.elapsedSec(performance.now());
       queueProgress({
         t: 'progress',
         score: g.stats.score,
@@ -213,7 +209,8 @@ export default function VersusGame({ code }: { code: string }) {
         rest,
       });
     },
-    onTimeUp: (g) => {
+    // 時間切れ、またはワード数指定で指定数を打ち切った
+    onFinish: (g) => {
       flushProgress();
       send({ t: 'done', stats: g.result() });
       changePhase('waitResult');
@@ -226,7 +223,7 @@ export default function VersusGame({ code }: { code: string }) {
     loadSoundPref(); // URLから直接来た参加者もホームの設定なしで効果音の設定を復元できる
     try {
       const saved = JSON.parse(localStorage.getItem(PROPOSAL_STORAGE_KEY) ?? 'null');
-      if (saved?.durationSec) setMyProposal({ durationSec: saved.durationSec, wordListId: saved.wordListId ?? 'basic' });
+      if (saved) setMyProposal(sanitizeRule(saved));
     } catch {
       // 壊れた保存値は無視
     }
@@ -275,7 +272,9 @@ export default function VersusGame({ code }: { code: string }) {
 
     const beginMatch = (msg: {
       words: Word[];
+      mode?: 'time' | 'words';
       durationSec: number;
+      wordCount?: number;
       wordListId: string;
       chosenBy: { playerId: number; name: string } | null;
       countdownMs: number;
@@ -298,7 +297,7 @@ export default function VersusGame({ code }: { code: string }) {
       const ids = Object.keys(peersSnapshot).map(Number);
       if (roleRef.current === 'player') ids.push(playerIdRef.current);
       setMatchIds(ids.sort((a, b) => a - b));
-      const rule: Rule = { durationSec: msg.durationSec, wordListId: msg.wordListId };
+      const rule: Rule = sanitizeRule(msg);
       setMatchInfo({ rule, chosenBy: msg.chosenBy ?? null });
 
       const startCountdown = () => {
@@ -313,7 +312,12 @@ export default function VersusGame({ code }: { code: string }) {
             clearCount();
             soundGo();
             if (roleRef.current === 'player') {
-              start(msg.words, { durationSec: msg.durationSec, shuffle: false });
+              start(msg.words, {
+                mode: rule.mode,
+                durationSec: rule.durationSec,
+                wordCount: rule.wordCount,
+                shuffle: false,
+              });
             }
             changePhase('playing');
           } else {
@@ -401,7 +405,7 @@ export default function VersusGame({ code }: { code: string }) {
             if (msg.state === 'playing' && msg.words && msg.match) {
               setMatchWords(msg.words);
               setMatchIds(list.map((p) => p.playerId));
-              setMatchInfo({ rule: msg.match, chosenBy: null });
+              setMatchInfo({ rule: sanitizeRule(msg.match), chosenBy: null });
               changePhase('playing');
             } else {
               changePhase('waiting');
@@ -651,6 +655,24 @@ export default function VersusGame({ code }: { code: string }) {
     .map(([id, p]) => ({ id: Number(id), ...p }))
     .sort((a, b) => a.id - b.id);
 
+  // 対戦中の進捗表示。ワード数指定は「完了数/指定数」と、いま打っているお題の途中までを含めた割合
+  const matchRule = matchInfo?.rule;
+  const isWordsMatch = matchRule?.mode === 'words';
+  const wordsDone = (completed: number) => `${Math.min(completed, matchRule?.wordCount ?? 0)}/${matchRule?.wordCount ?? 0}`;
+  const progressFrac = (p: { score: number; completedWords: number; wordProgress: number }, maxScore: number) => {
+    if (isWordsMatch && matchRule) {
+      const n = matchRule.wordCount;
+      return p.completedWords >= n ? 1 : Math.min((p.completedWords + p.wordProgress) / n, 1);
+    }
+    return Math.min(p.score / maxScore, 1);
+  };
+
+  // いま打っているお題。ワード数指定で打ち切った人は最後のお題のまま(次のお題は配られない)
+  const wordAt = (completed: number): Word | undefined => {
+    const idx = isWordsMatch && matchRule && completed >= matchRule.wordCount ? completed - 1 : completed;
+    return matchWords[Math.max(idx, 0) % Math.max(matchWords.length, 1)];
+  };
+
   // ---- 画面 ----
 
   let content = null;
@@ -763,17 +785,10 @@ export default function VersusGame({ code }: { code: string }) {
             <>
               <p className="lobby-title">対戦ルールを提案(全員の提案からランダムで決まります)</p>
               <div className="proposal-row">
-                <SegmentedControl<number>
-                  value={myProposal.durationSec}
-                  disabled={myReady}
-                  data-testid="p-duration-select"
-                  options={[
-                    { value: 30, label: '30秒' },
-                    { value: 60, label: '60秒' },
-                    { value: 120, label: '120秒' },
-                  ]}
-                  onChange={(durationSec) => setMyProposal({ ...myProposal, durationSec })}
-                />
+                <ModeControl rule={myProposal} onChange={setMyProposal} disabled={myReady} testIdPrefix="p-" />
+              </div>
+              <div className="proposal-row">
+                <AmountControl rule={myProposal} onChange={setMyProposal} disabled={myReady} testIdPrefix="p-" />
                 <Select
                   value={myProposal.wordListId}
                   disabled={myReady}
@@ -850,16 +865,20 @@ export default function VersusGame({ code }: { code: string }) {
     const isSpec = role === 'spectator';
     const myId = playerIdRef.current;
     const displayName = (id: number) => (!isSpec && id === myId ? `${myName}(あなた)` : nameOf(id));
+    // 時間指定はスコア順、ワード数指定はクリアタイム順(compareResults)。結果の無い人(離脱)は最下位
+    const mode = matchInfo?.rule.mode ?? 'time';
+    const isWords = mode === 'words';
+    const cmpEntry = (a: { st: Stats | null }, b: { st: Stats | null }) =>
+      a.st && b.st ? compareResults(a.st, b.st, mode) : a.st ? -1 : b.st ? 1 : 0;
     const entries = Object.entries(resultStats)
       .map(([id, st]) => ({ id: Number(id), st: st ?? null }))
-      .sort((a, b) => (b.st?.score ?? -1) - (a.st?.score ?? -1) || a.id - b.id);
-    // 同スコアは同順位(スコアが上の人数 + 1)
-    const rankOf = (e: { st: Stats | null }) =>
-      1 + entries.filter((o) => (o.st?.score ?? -1) > (e.st?.score ?? -1)).length;
+      .sort((a, b) => cmpEntry(a, b) || a.id - b.id);
+    // 同成績は同順位(成績が上の人数 + 1)
+    const rankOf = (e: { st: Stats | null }) => 1 + entries.filter((o) => cmpEntry(o, e) < 0).length;
     const mineEntry = entries.find((e) => e.id === myId) ?? null;
     const mine = mineEntry?.st ?? null;
-    const topScore = entries[0]?.st?.score;
-    const topEntries = entries.filter((e) => e.st != null && e.st.score === topScore);
+    const topEntries = entries.filter((e) => e.st != null && cmpEntry(e, entries[0]) === 0);
+    const timeText = (st: Stats) => (st.cleared && st.timeSec != null ? formatTimeSec(st.timeSec) : '時間切れ');
 
     let banner: string;
     let bannerClass = '';
@@ -906,7 +925,7 @@ export default function VersusGame({ code }: { code: string }) {
             <tr>
               <th>順位</th>
               <th className="rank-name">プレイヤー</th>
-              <th>スコア</th>
+              <th>{isWords ? 'タイム' : 'スコア'}</th>
               <th>KPM</th>
               <th>ミス</th>
               <th>正確率</th>
@@ -920,7 +939,13 @@ export default function VersusGame({ code }: { code: string }) {
                 <td className="rank-name" data-testid={!isSpec && e.id === myId ? 'result-my-name' : undefined}>
                   {displayName(e.id)}
                 </td>
-                <td data-testid={!isSpec && e.id === myId ? 'my-final-score' : undefined}>{e.st?.score ?? '-'}</td>
+                {isWords ? (
+                  <td data-testid={!isSpec && e.id === myId ? 'my-final-time' : undefined}>
+                    {e.st ? timeText(e.st) : '-'}
+                  </td>
+                ) : (
+                  <td data-testid={!isSpec && e.id === myId ? 'my-final-score' : undefined}>{e.st?.score ?? '-'}</td>
+                )}
                 <td>{e.st?.kpm ?? '-'}</td>
                 <td>{e.st?.misses ?? '-'}</td>
                 <td>{e.st ? `${e.st.accuracy}%` : '-'}</td>
@@ -962,13 +987,17 @@ export default function VersusGame({ code }: { code: string }) {
     const maxScore = Math.max(...ids.map((i) => (progById[i] ?? PROGRESS_ZERO).score), 1);
     const panels = ids.map((id) => {
       const prog = progById[id] ?? PROGRESS_ZERO;
-      const word: Word | undefined = matchWords[prog.completedWords % Math.max(matchWords.length, 1)];
-      const frac = prog.score / maxScore;
+      const word = wordAt(prog.completedWords);
+      const frac = progressFrac(prog, maxScore);
       return (
         <div className="spec-panel" key={id} data-testid={`spec-panel-${id}`}>
           <p className="spec-player-name">{nameOf(id)}</p>
           <div className="spec-stats">
-            <span>スコア <b>{prog.score}</b></span>
+            {isWordsMatch ? (
+              <span>お題 <b>{wordsDone(prog.completedWords)}</b></span>
+            ) : (
+              <span>スコア <b>{prog.score}</b></span>
+            )}
             <span>KPM <b>{prog.kpm}</b></span>
             <span>ミス <b>{prog.misses}</b></span>
           </div>
@@ -998,36 +1027,41 @@ export default function VersusGame({ code }: { code: string }) {
       </section>
     );
   } else if (phase === 'playing' && snap) {
-    // 進捗率は全員のスコアの相対比較
+    // 進捗率: 時間指定は全員のスコアの相対比較、ワード数指定は指定数に対する進み具合
     const myId = playerIdRef.current;
     const oppIds = matchIds.filter((id) => id !== myId && peers[id] != null);
     const maxScore = Math.max(snap.score, ...oppIds.map((id) => progById[id]?.score ?? 0), 1);
+    const myLen = snap.typed.length + snap.rest.length;
+    const myFrac = progressFrac(
+      { score: snap.score, completedWords: snap.completedWords, wordProgress: myLen > 0 ? snap.typed.length / myLen : 0 },
+      maxScore,
+    );
     content = (
       <section>
         <div className="hud">
           <div className="hud-item">KPM <span>{snap.kpm}</span></div>
           <div className="hud-item">ミス <span>{snap.misses}</span></div>
-          <div className="hud-item time">残り <span>{snap.timeLeft.toFixed(1)}</span></div>
+          <HudClock snap={snap} />
         </div>
-        <div className="time-bar">
-          <div className="time-bar-fill" style={{ width: `${snap.timeFrac * 100}%` }} />
-        </div>
+        <RemainBar snap={snap} />
 
         {oppIds.length > 0 && (
           <div className="opp-grid" data-testid="opp-grid" data-count={oppIds.length}>
             {oppIds.map((id) => {
               const p = progById[id] ?? PROGRESS_ZERO;
-              const word: Word | undefined = matchWords[p.completedWords % Math.max(matchWords.length, 1)];
+              const word = wordAt(p.completedWords);
               return (
                 <div className="opp-card" key={id} data-testid={`opp-card-${id}`}>
                   <div className="opp-head">
                     <span className="opp-name" data-testid={`opp-name-${id}`}>{nameOf(id)}</span>
-                    <span className="opp-score" data-testid={`opp-score-${id}`}>{p.score}</span>
+                    <span className="opp-score" data-testid={`opp-score-${id}`}>
+                      {isWordsMatch ? wordsDone(p.completedWords) : p.score}
+                    </span>
                   </div>
                   <div className="progress-track">
                     <div
                       className="progress-fill peer"
-                      style={{ width: `${Math.min(p.score / maxScore, 1) * 100}%` }}
+                      style={{ width: `${progressFrac(p, maxScore) * 100}%` }}
                     />
                   </div>
                   <div className="opp-word">
@@ -1049,9 +1083,11 @@ export default function VersusGame({ code }: { code: string }) {
             <span className="me-badge">あなた</span>
             <span className="me-name">{myName}</span>
             <div className="progress-track me-track">
-              <div className="progress-fill" style={{ width: `${Math.min(snap.score / maxScore, 1) * 100}%` }} />
+              <div className="progress-fill" style={{ width: `${myFrac * 100}%` }} />
             </div>
-            <span className="me-score" data-testid="my-score">{snap.score}</span>
+            <span className="me-score" data-testid="my-score">
+              {isWordsMatch ? wordsDone(snap.completedWords) : snap.score}
+            </span>
           </div>
           <WordArea snap={snap} />
         </div>

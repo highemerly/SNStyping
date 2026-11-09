@@ -2,13 +2,17 @@
 // 記録はベストエフォート(失敗しても握り潰す)。個人情報は一切送らない。
 
 import { REALTIME_URL } from './realtime';
+import { ruleKeySuffix } from './engine/rule';
 
 export type StatsMode = 'solo' | 'ghost' | 'online';
 
-// ソロ・オンラインの rule_key: `<wordListId>|<durationSec>`
-export function ruleKeyFor(wordListId: string | undefined, durationSec: number): string {
+// ソロ・オンラインの rule_key: `<wordListId>|<durationSec>`(時間指定)/ `<wordListId>|w<wordCount>`(ワード数指定)
+export function ruleKeyFor(
+  wordListId: string | undefined,
+  rule: { mode: string; durationSec: number; wordCount: number },
+): string {
   const list = wordListId && wordListId !== 'upload' ? wordListId : 'upload';
-  return `${list}|${durationSec}`;
+  return `${list}|${ruleKeySuffix(rule)}`;
 }
 
 // ゲーム完了時に1回だけ呼ぶ。fire-and-forget(完了直後の画面遷移でも欠落しにくいよう keepalive)。

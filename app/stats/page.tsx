@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchStats, type StatsMode, type StatsSummary } from '@/lib/stats';
 import { EMPTY_CATALOG, fetchCatalog } from '@/lib/dictsource';
+import { parseRuleKeySuffix, ruleAmountLabel } from '@/lib/engine/rule';
 import type { Catalog } from '@/components/modeTypes';
 
 const MODE_LABEL: Record<StatsMode, string> = {
@@ -37,12 +38,12 @@ export default function StatsPage() {
       const g = catalog.ghosts.find((x) => x.id === ruleKey);
       return g?.title ?? ruleKey;
     }
-    // solo / online: `<wordListId>|<durationSec>`
+    // solo / online: `<wordListId>|<durationSec>`(時間指定)/ `<wordListId>|w<wordCount>`(ワード数指定)
     const sep = ruleKey.lastIndexOf('|');
     const list = sep >= 0 ? ruleKey.slice(0, sep) : ruleKey;
-    const dur = sep >= 0 ? ruleKey.slice(sep + 1) : '';
+    const amount = parseRuleKeySuffix(sep >= 0 ? ruleKey.slice(sep + 1) : '');
     const listTitle = list === 'upload' ? 'アップロード' : catalog.words.find((w) => w.id === list)?.title ?? list;
-    return dur ? `${listTitle} / ${dur}秒` : listTitle;
+    return amount ? `${listTitle} / ${ruleAmountLabel(amount)}` : listTitle;
   };
 
   const totalOf = (mode: StatsMode) =>

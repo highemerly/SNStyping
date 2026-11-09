@@ -1,9 +1,10 @@
 'use client';
 
-// ソロプレイ(/solo)。制限時間・単語リスト(TSVアップロード可)を選んでスタート。
+// ソロプレイ(/solo)。モード(時間指定 / ワード数指定)・単語リスト(TSVアップロード可)を選んでスタート。
 // 設定画面とゲーム本体は同じURLのまま内部stateで切り替える(playing)。
 //
-// クエリパラメータ ?t=<秒>&list=<リストID> があれば、その設定でそのままゲームに入る。
+// クエリパラメータ ?t=<秒>&list=<リストID>(時間指定)/ ?w=<語数>&list=<リストID>(ワード数指定)
+// があれば、その設定でそのままゲームに入る。
 // プレイ開始時にURLも同じ形に揃えるので、リザルト画面のURLがそのまま共有・ブックマーク可能。
 
 import { useEffect, useRef, useState } from 'react';
@@ -13,7 +14,15 @@ import { normalizeReading, parseKana } from '@/lib/engine/romaji';
 import { loadWordList, parseWordList } from '@/lib/engine/words';
 import { EMPTY_CATALOG, fetchCatalog, findWordList, groupWordsByCategory, wordListUrl } from '@/lib/dictsource';
 import type { Word, WordList, Catalog } from '@/components/modeTypes';
-import { Field, SegmentedControl, Select } from '@/components/Controls';
+import { Field, Select } from '@/components/Controls';
+import { RuleFields } from '@/components/RuleFields';
+import {
+  DEFAULT_DURATION_SEC,
+  DEFAULT_WORD_COUNT,
+  DURATION_OPTIONS,
+  WORD_COUNT_OPTIONS,
+} from '@/lib/engine/rule';
+import type { PlayMode } from '@/components/modeTypes';
 
 export default function SoloPage() {
   const router = useRouter();
@@ -27,20 +36,27 @@ export default function SoloPage() {
 
   const [words, setWords] = useState<Word[]>([]);
   const [wordSource, setWordSource] = useState('読み込み中…');
-  const [durationSec, setDurationSec] = useState(60);
+  // モードと、制限時間・ワード数(切り替えても両方の選択を覚えておく)
+  const [amount, setAmount] = useState<{ mode: PlayMode; durationSec: number; wordCount: number }>({
+    mode: 'time',
+    durationSec: DEFAULT_DURATION_SEC,
+    wordCount: DEFAULT_WORD_COUNT,
+  });
   const [wordListId, setWordListId] = useState('basic');
   // アップロードされた単語リスト(選択肢 'upload' として使う)
   const [uploaded, setUploaded] = useState<{ title: string; words: Word[] } | null>(null);
   const [uploadNote, setUploadNote] = useState('');
 
-  // URLのクエリから設定を読み込む(マウント時のみ)。t=制限時間 / list=リストID。
+  // URLのクエリから設定を読み込む(マウント時のみ)。t=制限時間 / w=ワード数 / list=リストID。
   // 有効なら autoStart を立て、単語リストが読み込め次第そのままゲームに入る。
   const autoStartRef = useRef(false);
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const t = Number(p.get('t'));
+    const w = Number(p.get('w'));
     const list = p.get('list');
-    if ([30, 60, 120].includes(t)) setDurationSec(t);
+    if (WORD_COUNT_OPTIONS.includes(w)) setAmount((a) => ({ ...a, mode: 'words', wordCount: w }));
+    else if (DURATION_OPTIONS.includes(t)) setAmount((a) => ({ ...a, mode: 'time', durationSec: t }));
     if (list && list !== 'upload') {
       setWordListId(list);
       autoStartRef.current = true;
@@ -49,8 +65,9 @@ export default function SoloPage() {
   }, []);
 
   // 登録済みリストなら共有可能なURL。アップロード(=in-memory)は共有不可。
+  const amountQuery = amount.mode === 'words' ? `w=${amount.wordCount}` : `t=${amount.durationSec}`;
   const sameModeHref =
-    wordListId === 'upload' ? null : `/solo?t=${durationSec}&list=${encodeURIComponent(wordListId)}`;
+    wordListId === 'upload' ? null : `/solo?${amountQuery}&list=${encodeURIComponent(wordListId)}`;
 
   // プレイ開始。開始時にURLも設定に揃える(リザルトのURLがそのまま共有可能になる)。
   const startPlaying = () => {
@@ -148,7 +165,7 @@ export default function SoloPage() {
       <main className="app">
         <SoloGame
           words={words}
-          config={{ durationSec, wordListTitle, wordListId }}
+          config={{ ...amount, wordListTitle, wordListId }}
           onExit={() => setPlaying(false)}
           onHome={() => router.push('/')}
         />
@@ -161,18 +178,7 @@ export default function SoloPage() {
       <section className="screen-box">
         <h2>ソロプレイ</h2>
         <div className="card-settings">
-          <Field label="制限時間">
-            <SegmentedControl<number>
-              value={durationSec}
-              onChange={setDurationSec}
-              data-testid="duration-select"
-              options={[
-                { value: 30, label: '30秒' },
-                { value: 60, label: '60秒' },
-                { value: 120, label: '120秒' },
-              ]}
-            />
-          </Field>
+          <RuleFields rule={amount} onChange={setAmount} />
           <Field label="単語リスト">
             <Select value={wordListId} onChange={(e) => setWordListId(e.target.value)} data-testid="wordlist-select">
               {groupWordsByCategory(catalog).map((g) => (

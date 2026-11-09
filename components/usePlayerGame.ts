@@ -8,6 +8,7 @@ import { Game } from '@/lib/engine/game';
 import { codeToKana } from '@/lib/engine/kana';
 import { loadInputModePref, loadRomajiStylePref } from './settings';
 import { soundMiss, soundWord } from './sound';
+import type { PlayMode } from './modeTypes';
 
 interface TextProgress {
   done: string;
@@ -30,26 +31,32 @@ export interface Snapshot {
   kpm: number;
   timeLeft: number;
   elapsedSec: number;
-  timeFrac: number; // 残り時間の割合(上部バー用)
+  mode: PlayMode;
+  wordCount: number; // ワード数指定の指定数
+  wordsLeft: number; // ワード数指定の残りお題数
+  barFrac: number; // 上部バーの残り割合(時間指定 = 残り時間 / ワード数指定 = 残りお題数)
 }
 
 export type GameEvent = 'hit' | 'miss' | 'word';
 
 interface Options {
   onEvent?: (ev: GameEvent, game: Game) => void;
-  onTimeUp?: (game: Game) => void; // 時間切れ
+  onFinish?: (game: Game) => void; // 終了(時間切れ・ワード数指定で打ち切った)
   blocked?: () => boolean; // true の間はキー入力を無視(確認ダイアログ表示中など)
 }
 
 export interface StartOptions {
+  mode?: PlayMode;
   durationSec?: number;
+  wordCount?: number;
   shuffle?: boolean;
 }
 
 function makeSnapshot(g: Game): Snapshot {
   const now = performance.now();
   const timeLeft = g.remainingSec(now);
-  const usedSec = g.durationSec - timeLeft;
+  const usedSec = g.elapsedSec(now);
+  const wordsLeft = Math.max(g.wordCount - g.stats.completedWords, 0);
   const line = g.current;
   const progress = line?.progressText() ?? {
     reading: { done: '', current: '', rest: '' },
@@ -68,8 +75,11 @@ function makeSnapshot(g: Game): Snapshot {
     completedWords: g.stats.completedWords,
     kpm: usedSec > 1 ? Math.round((g.stats.hits * 60) / usedSec) : 0,
     timeLeft,
-    elapsedSec: g.elapsedSec(now),
-    timeFrac: timeLeft / g.durationSec,
+    elapsedSec: usedSec,
+    mode: g.mode,
+    wordCount: g.wordCount,
+    wordsLeft,
+    barFrac: g.mode === 'words' ? wordsLeft / g.wordCount : timeLeft / g.durationSec,
   };
 }
 
@@ -113,7 +123,7 @@ export function usePlayerGame(options: Options = {}) {
         if (game.isTimeUp()) {
           stop();
           refresh();
-          optionsRef.current.onTimeUp?.(game);
+          optionsRef.current.onFinish?.(game);
           return;
         }
         refresh();
@@ -145,10 +155,15 @@ export function usePlayerGame(options: Options = {}) {
       else if (result === 'word') soundWord();
       refresh();
       optionsRef.current.onEvent?.(result as GameEvent, g);
+      // ワード数指定で最後のお題を打ち切った(エンジン側で終了済み)
+      if (!g.running) {
+        stop();
+        optionsRef.current.onFinish?.(g);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [refresh]);
+  }, [refresh, stop]);
 
   // アンマウント時にタイマー停止
   useEffect(() => stop, [stop]);

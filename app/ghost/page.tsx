@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import GhostGame from '@/components/GhostGame';
-import { validateGhost, verifyGhost, ENGINE_VERSION } from '@/lib/engine/ghost';
+import { ghostRuleLabel, validateGhost, verifyGhost, ENGINE_VERSION } from '@/lib/engine/ghost';
 import { EMPTY_CATALOG, fetchCatalog, ghostUrl } from '@/lib/dictsource';
 import type { Catalog } from '@/components/modeTypes';
 import { Field, Select } from '@/components/Controls';
@@ -174,7 +174,7 @@ export default function GhostPage() {
           )}
           {ghost && (
             <p className="word-source" data-testid="ghost-summary">
-              👻 {ghost.player.name} / {ghost.rule.durationSec}秒 / {ghost.words.length}語
+              👻 {ghost.player.name} / {ghost.rule.mode === 'words' ? `ワード数指定 ${ghostRuleLabel(ghost)}` : `${ghostRuleLabel(ghost)} / ${ghost.words.length}語`}
               {ghost.stats?.kpm != null ? ` / KPM ${ghost.stats.kpm}` : ''}
             </p>
           )}

@@ -18,3 +18,6 @@ export interface Catalog {
   words: WordList[];
   ghosts: { id: string; title: string; file: string }[];
 }
+
+// プレイルール(時間指定 / ワード数指定)。実体と検証は lib/engine/rule.js
+export type { PlayMode, PlayRule, GameResult } from '@/lib/engine/rule';

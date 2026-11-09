@@ -11,6 +11,7 @@
 // 接続URLは /rooms/<code>/ws。join メッセージは不要(接続した時点で参加)。
 
 import { FALLBACK_WORDS, parseWordList } from '../lib/engine/words.js';
+import { ruleKeySuffix, sanitizeRule, timeLimitSec } from '../lib/engine/rule.js';
 
 // 単語リストは snstyping-dict リポジトリの GitHub Pages から実行時に取得する
 // (バンドルしない。辞書の追加はあちら側のPRだけで反映される)
@@ -133,6 +134,7 @@ export class Room {
     // Worker からの部屋初期化(部屋の存在 = config が storage にあること)
     // ruleType 'propose': 毎試合ロビーで両者が提案しランダム採用
     // ruleType 'host'   : 部屋を作った人が決めたルールで固定
+    // ルールは { mode: 'time'|'words', durationSec, wordCount, wordListId }(lib/engine/rule.js)
     if (url.pathname === '/init') {
       if (this.ctx.getWebSockets().length > 0) {
         return new Response('occupied', { status: 409 });
@@ -146,7 +148,7 @@ export class Room {
       const ruleType = body.ruleType === 'host' ? 'host' : 'propose';
       await this.ctx.storage.put('config', {
         ruleType,
-        rule: ruleType === 'host' ? sanitizeProposal(body.rule) : null,
+        rule: ruleType === 'host' ? sanitizeRule(body.rule) : null,
         code: typeof body.code === 'string' ? body.code : null,
         isPublic: body.isPublic !== false,
         maxPlayers: sanitizeMaxPlayers(body.maxPlayers),
@@ -272,20 +274,22 @@ export class Room {
     this.broadcast({
       t: 'start',
       words,
+      mode: rule.mode,
       durationSec: rule.durationSec,
+      wordCount: rule.wordCount,
       wordListId: rule.wordListId,
       chosenBy,
       countdownMs: COUNTDOWN_MS,
     });
-    // done が揃わない場合の保険
-    await this.ctx.storage.setAlarm(Date.now() + COUNTDOWN_MS + rule.durationSec * 1000 + RESULT_GRACE_MS);
+    // done が揃わない場合の保険(ワード数指定は上限時間まで待つ)
+    await this.ctx.storage.setAlarm(Date.now() + COUNTDOWN_MS + timeLimitSec(rule) * 1000 + RESULT_GRACE_MS);
     await this.reportToDirectory();
     // プレイ数を計上(ベストエフォート。失敗しても対戦本体には影響させない)
     try {
       const stub = this.env.STATS.get(this.env.STATS.idFromName('global'));
       await stub.fetch('https://stats/hit', {
         method: 'POST',
-        body: JSON.stringify({ mode: 'online', ruleKey: `${rule.wordListId}|${rule.durationSec}` }),
+        body: JSON.stringify({ mode: 'online', ruleKey: `${rule.wordListId}|${ruleKeySuffix(rule)}` }),
       });
     } catch {
       // 統計はベストエフォート
@@ -360,7 +364,7 @@ export class Room {
         const config = await this.ctx.storage.get('config');
         const isHost = config?.ruleType === 'host';
         const ready = (await this.ctx.storage.get('ready')) ?? {};
-        ready[playerId] = { proposal: isHost ? null : sanitizeProposal(msg.proposal) };
+        ready[playerId] = { proposal: isHost ? null : sanitizeRule(msg.proposal) };
         await this.ctx.storage.put('ready', ready);
         await this.touchActivity();
         this.broadcastExcept(ws, { t: 'peer_ready', playerId, proposal: ready[playerId].proposal });
@@ -369,7 +373,8 @@ export class Room {
         const ids = playerSockets.map((w) => w.deserializeAttachment()?.playerId);
         if (playerSockets.length >= MIN_PLAYERS && ids.every((id) => ready[id])) {
           if (isHost) {
-            await this.startMatch(config.rule, null);
+            // mode の無い旧ルール(ワード数指定の導入前に作られた部屋)も時間指定として補正する
+            await this.startMatch(sanitizeRule(config.rule), null);
           } else {
             const chosenId = ids[Math.floor(Math.random() * ids.length)];
             const chosenWs = playerSockets.find((w) => w.deserializeAttachment()?.playerId === chosenId);
@@ -465,18 +470,6 @@ export class Room {
       if (ws !== exclude) send(ws, msg);
     }
   }
-}
-
-// 提案されたルールをサーバー側で検証・補正する。
-// wordListId はここでは形式のみ確認し、実在チェックは試合開始時の
-// resolveWordList に任せる(カタログに無ければ basic に落ちる)。
-function sanitizeProposal(p) {
-  let durationSec = Number(p?.durationSec ?? 60);
-  if (!Number.isInteger(durationSec) || durationSec < 5 || durationSec > 300) durationSec = 60;
-  const wordListId = typeof p?.wordListId === 'string' && /^[a-z0-9_-]{1,50}$/i.test(p.wordListId)
-    ? p.wordListId
-    : 'basic';
-  return { durationSec, wordListId };
 }
 
 // 部屋の同時対戦人数の上限(部屋を作る人が指定)。範囲外・未指定は最小値に補正

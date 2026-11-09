@@ -1,30 +1,29 @@
 'use client';
 
-// ソロプレイ(時間制スコアアタック)。Space で開始 → カウントダウン → プレイ → リザルト。
+// ソロプレイ。Space で開始 → カウントダウン → プレイ → リザルト。
+// 時間指定はスコア、ワード数指定はクリアタイムがリザルトの主役。
 
 import { useEffect, useRef, useState } from 'react';
 import ShareButtons from './ShareButtons';
 import WordArea from './WordArea';
 import InputModeNotice from './InputModeNotice';
 import { usePlayerGame } from './usePlayerGame';
+import { HudClock, RemainBar } from './Hud';
 import { loadNamePref, setNamePref } from './settings';
 import { soundCount, soundGo } from './sound';
 import { createGhost } from '@/lib/engine/ghost';
 import { recordPlay, ruleKeyFor } from '@/lib/stats';
+import { formatTimeSec, ruleAmountLabel } from '@/lib/engine/rule';
+import type { GameResult, PlayMode } from './modeTypes';
 
 const COUNTDOWN_SEC = 3;
 
-interface Result {
-  score: number;
-  hits: number;
-  misses: number;
-  completedWords: number;
-  kpm: number;
-  accuracy: number;
-}
+type Result = GameResult;
 
 export interface SoloConfig {
+  mode: PlayMode;
   durationSec: number;
+  wordCount: number;
   wordListTitle?: string;
   // 単語リストID。登録済みリストなら共有URLに埋め込んで同じモードを再現できる('upload'は不可)
   wordListId?: string;
@@ -50,11 +49,11 @@ export default function SoloGame({ words, config, onExit, onHome }: Props) {
     setResult(g.result());
     setPhase('result');
     // プレイ数を計上(ベストエフォート)
-    recordPlay('solo', ruleKeyFor(config.wordListId, config.durationSec));
+    recordPlay('solo', ruleKeyFor(config.wordListId, config));
   };
 
   const { snap, start, gameRef, getRecording } = usePlayerGame({
-    onTimeUp: finishWith,
+    onFinish: finishWith,
   });
 
   useEffect(() => {
@@ -69,7 +68,7 @@ export default function SoloGame({ words, config, onExit, onHome }: Props) {
     setNamePref(name);
     const ghost = createGhost({
       playerName: name,
-      rule: { durationSec: config.durationSec, inputMode: g.inputMode },
+      rule: { mode: config.mode, durationSec: config.durationSec, wordCount: config.wordCount, inputMode: g.inputMode },
       words: g.words, // シャッフル後の実際の順序
       keys: getRecording(),
       stats: result,
@@ -100,7 +99,7 @@ export default function SoloGame({ words, config, onExit, onHome }: Props) {
       }
       clearInterval(timer);
       soundGo();
-      start(words, { durationSec: config.durationSec });
+      start(words, { mode: config.mode, durationSec: config.durationSec, wordCount: config.wordCount });
       setGhostSaved(false);
       setPhase('playing');
     }, 1000);
@@ -135,7 +134,8 @@ export default function SoloGame({ words, config, onExit, onHome }: Props) {
     return () => window.removeEventListener('keydown', handler);
   }, [phase, onExit, onHome]);
 
-  const ruleText = `${config.wordListTitle ? `${config.wordListTitle} / ` : ''}${config.durationSec}秒`;
+  const ruleText = `${config.wordListTitle ? `${config.wordListTitle} / ` : ''}${ruleAmountLabel(config)}`;
+  const isWords = config.mode === 'words';
 
   if (phase === 'ready') {
     return (
@@ -168,14 +168,24 @@ export default function SoloGame({ words, config, onExit, onHome }: Props) {
       <section className="screen-box">
         <h2>結果</h2>
         <p className="room-rules" data-testid="result-rule">{ruleText}</p>
-        <p className="result-score" data-testid="result-score">{result.score}</p>
+        {isWords ? (
+          // ワード数指定はクリアタイムが主役(上限時間で打ち切られたら「時間切れ」)
+          <p className="result-score" data-testid="result-time">
+            {result.cleared && result.timeSec != null ? formatTimeSec(result.timeSec) : '時間切れ'}
+          </p>
+        ) : (
+          <p className="result-score" data-testid="result-score">{result.score}</p>
+        )}
         <table className="result-table">
           <tbody>
             <tr><th>正解タイプ数</th><td>{result.hits}</td></tr>
             <tr><th>ミス</th><td>{result.misses}</td></tr>
             <tr><th>KPM(打鍵/分)</th><td>{result.kpm}</td></tr>
             <tr><th>正確率</th><td>{result.accuracy}%</td></tr>
-            <tr><th>完了したお題</th><td>{result.completedWords}</td></tr>
+            <tr>
+              <th>完了したお題</th>
+              <td>{isWords ? `${result.completedWords} / ${config.wordCount}` : result.completedWords}</td>
+            </tr>
           </tbody>
         </table>
         <div className="button-row">
@@ -185,11 +195,18 @@ export default function SoloGame({ words, config, onExit, onHome }: Props) {
           <button onClick={onHome}>トップに戻る <kbd>Esc</kbd></button>
         </div>
         <ShareButtons
-          result={{ ...result, rule: ruleText }}
+          result={{
+            ...result,
+            rule: ruleText,
+            // ワード数指定で打ち切れたときだけタイムを共有する(時間切れはスコアで共有)
+            timeSec: isWords && result.cleared ? result.timeSec : undefined,
+          }}
           wordListTitle={config.wordListTitle}
           replay={
             config.wordListId && config.wordListId !== 'upload'
-              ? { t: config.durationSec, list: config.wordListId }
+              ? isWords
+                ? { w: config.wordCount, list: config.wordListId }
+                : { t: config.durationSec, list: config.wordListId }
               : null
           }
         />
@@ -217,14 +234,12 @@ export default function SoloGame({ words, config, onExit, onHome }: Props) {
   return (
     <section>
       <div className="hud">
-        <div className="hud-item">スコア <span data-testid="my-score">{snap.score}</span></div>
+        {!isWords && <div className="hud-item">スコア <span data-testid="my-score">{snap.score}</span></div>}
         <div className="hud-item">KPM <span>{snap.kpm}</span></div>
         <div className="hud-item">ミス <span>{snap.misses}</span></div>
-        <div className="hud-item time">残り <span>{snap.timeLeft.toFixed(1)}</span></div>
+        <HudClock snap={snap} />
       </div>
-      <div className="time-bar">
-        <div className="time-bar-fill" style={{ width: `${snap.timeFrac * 100}%` }} />
-      </div>
+      <RemainBar snap={snap} />
       <WordArea snap={snap} />
       <p className="hint">Esc でやめる</p>
     </section>

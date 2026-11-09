@@ -7,8 +7,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { EMPTY_CATALOG, fetchCatalog, findWordList, groupWordsByCategory } from '@/lib/dictsource';
 import { REALTIME_URL } from '@/lib/realtime';
-import type { WordList, Catalog } from '@/components/modeTypes';
+import type { WordList, Catalog, PlayMode } from '@/components/modeTypes';
 import { Field, SegmentedControl, Select, Toggle } from '@/components/Controls';
+import { RuleFields } from '@/components/RuleFields';
+import { DEFAULT_DURATION_SEC, DEFAULT_WORD_COUNT, ruleAmountLabel } from '@/lib/engine/rule';
 
 export default function OnlinePage() {
   const router = useRouter();
@@ -22,7 +24,12 @@ export default function OnlinePage() {
 
   // ---- 部屋作成 ----
   const [ruleType, setRuleType] = useState<'propose' | 'host'>('propose');
-  const [vsDurationSec, setVsDurationSec] = useState(60);
+  // 幹事方式のルールのモードと、制限時間・ワード数
+  const [vsAmount, setVsAmount] = useState<{ mode: PlayMode; durationSec: number; wordCount: number }>({
+    mode: 'time',
+    durationSec: DEFAULT_DURATION_SEC,
+    wordCount: DEFAULT_WORD_COUNT,
+  });
   const [vsWordListId, setVsWordListId] = useState('basic');
   const [vsMaxPlayers, setVsMaxPlayers] = useState(2);
   const [isPublic, setIsPublic] = useState(true);
@@ -33,7 +40,8 @@ export default function OnlinePage() {
   interface PublicRoom {
     code: string;
     ruleType: 'propose' | 'host';
-    rule: { durationSec: number; wordListId: string } | null;
+    // mode の無いエントリ(ワード数指定の導入前の部屋)は時間指定
+    rule: { mode?: PlayMode; durationSec: number; wordCount?: number; wordListId: string } | null;
     players: string[];
     playerCount: number;
     maxPlayers?: number; // 旧サーバーのエントリには無いことがある(既定2)
@@ -74,7 +82,7 @@ export default function OnlinePage() {
           ruleType,
           // 幹事方式のときだけ、この画面の設定を部屋のルールとして固定する
           rule: ruleType === 'host'
-            ? { durationSec: vsDurationSec, wordListId: vsWordListId }
+            ? { ...vsAmount, wordListId: vsWordListId }
             : undefined,
           isPublic,
           maxPlayers: vsMaxPlayers,
@@ -153,7 +161,7 @@ export default function OnlinePage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, creating, ruleType, vsDurationSec, vsWordListId, vsMaxPlayers, isPublic, publicRooms, router]);
+  }, [view, creating, ruleType, vsAmount, vsWordListId, vsMaxPlayers, isPublic, publicRooms, router]);
 
   if (view === 'create') {
     return (
@@ -193,18 +201,7 @@ export default function OnlinePage() {
               {ruleType === 'host' && (
                 // 幹事方式の配下の設定だとわかるよう、一段下げて左に線を引く
                 <div className="setting-sub">
-                  <Field label="制限時間">
-                    <SegmentedControl<number>
-                      value={vsDurationSec}
-                      data-testid="vs-duration-select"
-                      onChange={setVsDurationSec}
-                      options={[
-                        { value: 30, label: '30秒' },
-                        { value: 60, label: '60秒' },
-                        { value: 120, label: '120秒' },
-                      ]}
-                    />
-                  </Field>
+                  <RuleFields rule={vsAmount} onChange={setVsAmount} testIdPrefix="vs-" />
                   <Field label="単語リスト">
                     <Select value={vsWordListId} data-testid="vs-wordlist-select" onChange={(e) => setVsWordListId(e.target.value)}>
                       {groupWordsByCategory(catalog).map((g) => (
@@ -297,7 +294,7 @@ export default function OnlinePage() {
                 const joinable = r.playerCount < maxPlayers;
                 const num = i < 9 ? i + 1 : null; // 上から9室までキーボードで参加可
                 const ruleText = r.ruleType === 'host' && r.rule
-                  ? `${findWordList(catalog, r.rule.wordListId)?.title ?? r.rule.wordListId} / ${r.rule.durationSec}秒`
+                  ? `${findWordList(catalog, r.rule.wordListId)?.title ?? r.rule.wordListId} / ${ruleAmountLabel(r.rule)}`
                   : 'ルールはロビーで提案';
                 const stateText = !joinable
                   ? `満員(観戦${r.spectatorCount > 0 ? ` ${r.spectatorCount}人` : '可'})`

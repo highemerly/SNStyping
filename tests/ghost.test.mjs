@@ -30,7 +30,7 @@ function record({ missAt = [] } = {}) {
     keys.push([t, expected]);
     game.type(expected);
   }
-  game.finish();
+  game.finish(DURATION_SEC * 1000);
   const ghost = createGhost({
     playerName: 'テスト',
     rule: { durationSec: DURATION_SEC },
@@ -95,4 +95,39 @@ test('verifyGhost: 改ざんされた結果を検出する', () => {
   const { ghost } = record();
   const tampered = { ...ghost, stats: { ...ghost.stats, score: ghost.stats.score + 100 } };
   assert.equal(verifyGhost(tampered).ok, false);
+});
+
+test('ワード数指定のゴースト: 打ち切った時点で再生が終わり、記録と一致する', () => {
+  const WORD_COUNT = 3;
+  const game = new Game(WORDS, { mode: 'words', wordCount: WORD_COUNT, shuffle: false });
+  game.start(0);
+  const keys = [];
+  let t = 0;
+  while (game.running) {
+    t += 100;
+    const key = game.current.remainingText()[0];
+    keys.push([t, key]);
+    game.type(key, t);
+  }
+  const ghost = createGhost({
+    playerName: 'テスト',
+    rule: { mode: 'words', wordCount: WORD_COUNT, durationSec: 60 },
+    words: WORDS,
+    keys,
+    stats: game.result(),
+    recordedAt: '2026-11-10T00:00:00.000Z',
+  });
+  assert.deepEqual(ghost.rule, { mode: 'words', wordCount: WORD_COUNT, inputMode: 'romaji' });
+  assert.equal(validateGhost(ghost), null);
+  assert.equal(ghost.stats.cleared, true);
+  assert.equal(ghost.stats.timeSec, t / 1000);
+
+  const p = new GhostPlayer(ghost);
+  p.advanceTo(t - 1);
+  assert.equal(p.done, false);
+  p.advanceTo(t);
+  assert.equal(p.done, true);
+  assert.equal(p.game.result().timeSec, t / 1000);
+  assert.equal(verifyGhost(ghost).ok, true);
+  assert.notEqual(validateGhost({ ...ghost, rule: { mode: 'words', wordCount: 0 } }), null);
 });

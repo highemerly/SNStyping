@@ -2,29 +2,27 @@
 
 // ゴースト対戦: 録画された打鍵ログ(.ghost.json)を同じエンジンで再生し、
 // その仮想プレイヤーとローカルで競争する。サーバー不要。
-// お題・順序・制限時間はゴーストファイルに記録されたものをそのまま使う。
+// お題・順序・ルール(時間指定 / ワード数指定)はゴーストファイルに記録されたものをそのまま使う。
+// 勝敗は録画時の確定値と比べる(時間指定はスコア、ワード数指定はクリアタイム)。
 
 import { useEffect, useRef, useState } from 'react';
 import WordArea, { RomajiText } from './WordArea';
 import InputModeNotice from './InputModeNotice';
 import { usePlayerGame } from './usePlayerGame';
+import { HudClock, RemainBar } from './Hud';
 import { soundCount, soundGo } from './sound';
-import { GhostPlayer } from '@/lib/engine/ghost';
+import { GhostPlayer, ghostRuleLabel } from '@/lib/engine/ghost';
+import { compareResults, formatTimeSec } from '@/lib/engine/rule';
+import type { GameResult } from './modeTypes';
 import { recordPlay } from '@/lib/stats';
 
 interface Ghost {
   player: { name: string };
-  rule: { durationSec: number };
+  // mode 省略時は時間指定(durationSec)。ワード数指定は wordCount
+  rule: { mode?: 'time' | 'words'; durationSec?: number; wordCount?: number };
   words: { display: string; reading: string }[];
   keys: [number, string][];
-  stats: {
-    score: number;
-    hits: number;
-    misses: number;
-    completedWords: number;
-    kpm: number;
-    accuracy: number;
-  };
+  stats: GameResult;
 }
 
 interface Progress {
@@ -37,14 +35,7 @@ interface Progress {
   rest: string;
 }
 
-interface Result {
-  score: number;
-  hits: number;
-  misses: number;
-  completedWords: number;
-  kpm: number;
-  accuracy: number;
-}
+type Result = GameResult;
 
 const PROGRESS_ZERO: Progress = { score: 0, misses: 0, kpm: 0, completedWords: 0, wordProgress: 0, typed: '', rest: '' };
 const COUNTDOWN_SEC = 3;
@@ -71,8 +62,14 @@ export default function GhostGame({
   const startAtRef = useRef(0);
   // 設定モーダルを開いている間は Space/Esc のショートカットを止める
   const settingsOpenRef = useRef(false);
-  const durationSec = ghost.rule.durationSec;
-  const ruleText = `${durationSec}秒 / ${ghost.words.length}語`;
+  const mode = ghost.rule.mode === 'words' ? 'words' : 'time';
+  const isWords = mode === 'words';
+  const wordCount = ghost.rule.wordCount ?? 0;
+  const ruleText = isWords
+    ? `ワード数指定 ${ghostRuleLabel(ghost)}`
+    : `${ghostRuleLabel(ghost)} / ${ghost.words.length}語`;
+  // 打ち切れなかった(時間切れ)ときの表示も含めたタイム
+  const timeText = (r: Result) => (r.cleared && r.timeSec != null ? formatTimeSec(r.timeSec) : '時間切れ');
 
   const finishWith = (g: { result: () => Result }) => {
     setResult(g.result());
@@ -82,7 +79,7 @@ export default function GhostGame({
   };
 
   const { snap, start } = usePlayerGame({
-    onTimeUp: finishWith,
+    onFinish: finishWith,
   });
 
   // カウントダウン → 開始。リトライ(phase を countdown に戻す)でも同じ流れを通る
@@ -104,7 +101,12 @@ export default function GhostGame({
       setGhostProg(PROGRESS_ZERO);
       setGhostDone(false);
       startAtRef.current = performance.now();
-      start(ghost.words, { durationSec, shuffle: false });
+      start(ghost.words, {
+        mode,
+        durationSec: ghost.rule.durationSec,
+        wordCount: ghost.rule.wordCount,
+        shuffle: false,
+      });
       setPhase('playing');
     }, 1000);
     return () => clearInterval(timer);
@@ -185,7 +187,8 @@ export default function GhostGame({
   if (phase === 'result' && result) {
     // 自分の結果 vs ゴーストの記録された結果(リプレイ値ではなく録画時の確定値)
     const gs = ghost.stats;
-    const cmp = result.score - gs.score;
+    // compareResults は自分が上位なら負
+    const cmp = -compareResults(result, gs, mode);
     const banner = cmp > 0 ? 'WIN!' : cmp < 0 ? 'LOSE…' : 'DRAW';
     return (
       <section className="screen-box">
@@ -202,7 +205,11 @@ export default function GhostGame({
             </tr>
           </thead>
           <tbody>
-            <tr><th>スコア</th><td data-testid="my-final-score">{result.score}</td><td>{gs.score}</td></tr>
+            {isWords ? (
+              <tr><th>タイム</th><td data-testid="my-final-time">{timeText(result)}</td><td>{timeText(gs)}</td></tr>
+            ) : (
+              <tr><th>スコア</th><td data-testid="my-final-score">{result.score}</td><td>{gs.score}</td></tr>
+            )}
             <tr><th>KPM</th><td>{result.kpm}</td><td>{gs.kpm}</td></tr>
             <tr><th>ミス</th><td>{result.misses}</td><td>{gs.misses}</td></tr>
             <tr><th>正確率</th><td>{result.accuracy}%</td><td>{gs.accuracy}%</td></tr>
@@ -221,23 +228,22 @@ export default function GhostGame({
 
   if (!snap) return null;
 
-  // 進捗バー: スコアの相対比較
+  // 進捗バー: 時間指定はスコアの相対比較、ワード数指定は指定数に対する完了したお題の割合
   const maxScore = Math.max(snap.score, ghostProg.score, 1);
-  const myFrac = snap.score / maxScore;
-  const ghostFrac = ghostProg.score / maxScore;
+  const myFrac = isWords ? snap.completedWords / wordCount : snap.score / maxScore;
+  const ghostFrac = isWords ? ghostProg.completedWords / wordCount : ghostProg.score / maxScore;
+  const barValue = (completed: number, score: number) => (isWords ? `${completed}/${wordCount}` : score);
   const ghostWord = ghost.words[(ghostProg.completedWords) % ghost.words.length];
 
   return (
     <section>
       <div className="hud">
-        <div className="hud-item">スコア <span data-testid="my-score">{snap.score}</span></div>
+        {!isWords && <div className="hud-item">スコア <span data-testid="my-score">{snap.score}</span></div>}
         <div className="hud-item">KPM <span>{snap.kpm}</span></div>
         <div className="hud-item">ミス <span>{snap.misses}</span></div>
-        <div className="hud-item time">残り <span>{snap.timeLeft.toFixed(1)}</span></div>
+        <HudClock snap={snap} />
       </div>
-      <div className="time-bar">
-        <div className="time-bar-fill" style={{ width: `${snap.timeFrac * 100}%` }} />
-      </div>
+      <RemainBar snap={snap} />
 
       <div className="battle-bars">
         <div className="battle-row">
@@ -245,14 +251,16 @@ export default function GhostGame({
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${Math.min(myFrac, 1) * 100}%` }} />
           </div>
-          <span className="battle-value" data-testid="my-bar-value">{snap.score}</span>
+          <span className="battle-value" data-testid="my-bar-value">{barValue(snap.completedWords, snap.score)}</span>
         </div>
         <div className="battle-row peer">
           <span className="battle-name" data-testid="ghost-title">{ghostName}</span>
           <div className="progress-track">
             <div className="progress-fill peer" style={{ width: `${Math.min(ghostFrac, 1) * 100}%` }} />
           </div>
-          <span className="battle-value" data-testid="ghost-bar-value">{ghostProg.score}</span>
+          <span className="battle-value" data-testid="ghost-bar-value">
+            {barValue(ghostProg.completedWords, ghostProg.score)}
+          </span>
         </div>
       </div>
 

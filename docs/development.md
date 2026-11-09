@@ -169,7 +169,7 @@ gh workflow run tag-release.yml --ref main -f bump=patch
 
 | ジョブ | 中身 |
 |---|---|
-| meta | 版の確認、前回のタグ、Worker が変わったか（`realtime/`・`lib/engine/words.js`）、DO のマイグレーションが増えたか |
+| meta | 版の確認、前回のタグ、Worker が変わったか（`realtime/`・`lib/engine/words.js`・`lib/engine/rule.js`）、DO のマイグレーションが増えたか |
 | checks・e2e | ブランチの CI と同じ検査と E2E を**全部**（差分で省かない） |
 | deploy-worker | `wrangler deploy`。**前回のタグから Worker に関わるファイルが変わったときだけ**（再デプロイで対戦中の部屋が切れるため） |
 | deploy-vercel | `vercel pull` → `vercel build --prod` → `vercel deploy --prebuilt --prod`。続けて本番の画面と Worker が 200 を返すかを確かめる |

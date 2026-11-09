@@ -27,8 +27,9 @@ test('solo page reads the dictionary catalog from NEXT_PUBLIC_DICT_BASE_URL', as
   await expect(page.locator('option', { hasText: 'E2E辞書' }).first()).toBeAttached();
 });
 
-// 対戦サーバーのプロトコル（README「対戦プロトコル」）で2人つなぎ、準備OKで試合が始まるところまで
-test('online match starts with words from the dictionary', async () => {
+// 対戦サーバーのプロトコル（README「対戦プロトコル」）で2人つなぎ、全員が proposal で準備OKして
+// 配られた start メッセージを返す
+async function startMatch(proposal: object): Promise<{ t: string; [k: string]: unknown }[]> {
   const created = await fetch(`${WORKER_URL}/api/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -57,18 +58,34 @@ test('online match starts with words from the dictionary', async () => {
     }
 
     for (const { ws } of players) {
-      ws.send(JSON.stringify({ t: 'ready', proposal: { wordListId: 'basic', durationSec: 30 } }));
+      ws.send(JSON.stringify({ t: 'ready', proposal }));
     }
 
+    const starts = [];
     for (const { messages } of players) {
       await expect.poll(() => messages.find((m) => m.t === 'start')).toBeTruthy();
-      const start = messages.find((m) => m.t === 'start')!;
-      expect(start.durationSec).toBe(30);
-      // 偽の辞書のお題が配られている（Worker が DICT_BASE_URL から読めている。失敗時は内蔵のお題になる）
-      const words = start.words as { reading: string }[];
-      expect(words.map((w) => w.reading).sort()).toEqual(['いーつーいー', 'そつうかくにん', 'にせのじしょ']);
+      starts.push(messages.find((m) => m.t === 'start')!);
     }
+    return starts;
   } finally {
     for (const ws of sockets) ws.close();
+  }
+}
+
+test('online match starts with words from the dictionary', async () => {
+  for (const start of await startMatch({ wordListId: 'basic', durationSec: 30 })) {
+    // mode の無い提案（ワード数指定の導入前のクライアント）は時間指定になる
+    expect(start.mode).toBe('time');
+    expect(start.durationSec).toBe(30);
+    // 偽の辞書のお題が配られている（Worker が DICT_BASE_URL から読めている。失敗時は内蔵のお題になる）
+    const words = start.words as { reading: string }[];
+    expect(words.map((w) => w.reading).sort()).toEqual(['いーつーいー', 'そつうかくにん', 'にせのじしょ']);
+  }
+});
+
+test('online match starts in word-count mode', async () => {
+  for (const start of await startMatch({ mode: 'words', wordCount: 15, wordListId: 'basic' })) {
+    expect(start.mode).toBe('words');
+    expect(start.wordCount).toBe(15);
   }
 });

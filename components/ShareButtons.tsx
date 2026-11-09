@@ -15,8 +15,9 @@ export default function ShareButtons({
 }: {
   result: ShareResult;
   wordListTitle?: string;
-  // 同じモードを遊べる場合の設定(共有URLに ?t=&list= として埋め込み、/s の「自分も挑戦する」で使う)
-  replay?: { t: number; list: string } | null;
+  // 同じモードを遊べる場合の設定(共有URLに ?t=&list= / ?w=&list= として埋め込み、/s の「自分も挑戦する」で使う)
+  // t = 制限時間(時間指定)/ w = ワード数(ワード数指定)のどちらか
+  replay?: { t?: number; w?: number; list: string } | null;
 }) {
   const [mastodonOpen, setMastodonOpen] = useState(false);
   const [instance, setInstance] = useState('');
@@ -28,7 +29,9 @@ export default function ShareButtons({
   const text = shareText(result, wordListTitle);
   const pageUrl = () => {
     const q = shareQuery(result);
-    const extra = replay ? `&t=${replay.t}&list=${encodeURIComponent(replay.list)}` : '';
+    const extra = replay
+      ? `&${replay.w != null ? `w=${replay.w}` : `t=${replay.t}`}&list=${encodeURIComponent(replay.list)}`
+      : '';
     return `${location.origin}/s?${q}${extra}`;
   };
 

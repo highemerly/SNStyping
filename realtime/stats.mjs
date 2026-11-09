@@ -6,11 +6,12 @@
 // 日付はこの DO 側(サーバー時刻)で確定する。クライアントの時計は信用しない。
 //
 // rule_key の形式:
-//   solo / online : `<wordListId>|<durationSec>`(例: basic|60)
+//   solo / online : 時間指定は `<wordListId>|<durationSec>`(例: basic|60)、
+//                   ワード数指定は `<wordListId>|w<wordCount>`(例: basic|w10)
 //   ghost         : `<ghostId>`(ローカルファイルは 'file')
 
 const MODES = new Set(['solo', 'ghost', 'online']);
-// rule_key に許す文字。id(英数と _ - . と、Mastodonハンドル用の @)と区切りの | のみ。長さは80まで。
+// rule_key に許す文字。id(英数と _ - . と、Mastodonハンドル用の @)と区切りの | のみ。長さは120まで。
 // 例: `@highemerly@handon.club|60`(SNS辞書リストは投稿者ハンドルがそのままリストID)。
 const RULE_KEY_RE = /^[A-Za-z0-9_.@|-]{1,120}$/;
 // 表示用タイムライン(日別)の取得日数

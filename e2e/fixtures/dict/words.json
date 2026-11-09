@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "words": [
+    {
+      "id": "basic",
+      "title": "E2E辞書",
+      "category": "一般",
+      "version": "e2e",
+      "file": "basic.tsv",
+      "entries": 3
+    }
+  ]
+}

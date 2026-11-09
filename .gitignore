@@ -10,6 +10,11 @@ next-env.d.ts
 .vercel
 realtime/.wrangler/
 
+# e2e (Playwright)
+e2e/.wrangler-state/
+test-results/
+playwright-report/
+
 # local env & tooling
 .env*.local
 .claude/settings.local.json

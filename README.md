@@ -216,7 +216,10 @@ tests/typing.test.mjs      エンジンのテスト(node --test)
 
 ```sh
 npm test                       # 判定エンジン(node --test)
+npm run e2e                    # E2E スモーク(Playwright。初回は npx playwright install chromium)
 ```
+
+E2E の中身は [docs/development.md](docs/development.md)「E2E」を参照。
 
 ## ロードマップ
 

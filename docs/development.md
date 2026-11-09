@@ -51,13 +51,14 @@ gh api -X PATCH repos/highemerly/SNStyping \
 | ジョブ | 中身 | 所要時間の目安 |
 |---|---|---|
 | checks（[checks.yml](../.github/workflows/checks.yml)） | `npm test`（判定エンジンの unit テスト）・`next build`（型検査を含む）・`wrangler deploy --dry-run`（Worker のバンドル） | 1〜2分 |
+| e2e（[e2e.yml](../.github/workflows/e2e.yml)） | E2E スモーク（下の「E2E」）。checks と同じ条件で並行して回す | 1分前後 |
 | ci-result | 走ったジョブの結果を1つにまとめる（必須チェック） | 数秒 |
 
 **差分で間引く。** [.github/scripts/ci-targets.sh](../.github/scripts/ci-targets.sh) が main との merge-base からの差分ファイルを見て決める:
 
 - 動作に影響しないもの（`*.md`・`docs/`・`.claude/`・`.githooks/`・`.github/rulesets/`・`.github/renovate.json5`・`.github/release.yml`・`.gitignore`）だけなら何も回さない。ci-result はスキップを通すので緑になる
 - タグ push・手での実行でしか動かないワークフロー（`release.yml`・`tag-release.yml`）はブランチでは確かめようがないので回さない
-- それ以外（アプリ・Worker・依存・CI の配線・一覧に無い種類のファイル）は checks を回す
+- それ以外（アプリ・Worker・依存・CI の配線・E2E・一覧に無い種類のファイル）は checks と e2e を回す
 
 手元で判定を試す（`GITHUB_OUTPUT` が無ければ標準出力に出る）:
 ```bash
@@ -65,6 +66,32 @@ git fetch origin && .github/scripts/ci-targets.sh
 ```
 
 新しい種類のファイルを足したら、判定の一覧も見直す。
+
+## E2E
+
+[e2e/](../e2e/) を Playwright（[playwright.config.ts](../playwright.config.ts)）で回す。いまは「開けるか・始まるか」だけを見る最小のスモーク。
+
+```bash
+npx playwright install chromium   # 初回だけ（@playwright/test の版を上げたら取り直す）
+npm run e2e
+```
+
+設定が次の3つを立ててからテストを流す（手元の開発サーバーとぶつからないよう専用のポート）:
+
+| サーバー | ポート | 中身 |
+|---|---|---|
+| 偽の辞書配信（[e2e/fixture-server.mjs](../e2e/fixture-server.mjs)） | 8798 | [e2e/fixtures/dict/](../e2e/fixtures/dict/) を配る。本物（snstyping-dict の GitHub Pages）に頼らず、お題を固定する |
+| Worker（`wrangler dev`＝workerd） | 8799 | `DICT_BASE_URL` を偽の辞書配信に向ける。DO の状態は `e2e/.wrangler-state/` |
+| 画面（`next build && next start`） | 3199 | `NEXT_PUBLIC_REALTIME_URL`・`NEXT_PUBLIC_DICT_BASE_URL` を上の2つに向けてビルドする |
+
+見ていること（[e2e/smoke.spec.ts](../e2e/smoke.spec.ts)）:
+
+- 主要な画面（`/`・`/solo`・`/online`・`/ghost`・`/stats`・`/contribute`）が 200 で開け、未捕捉の例外も `console.error` も出ない
+- `/solo` の辞書の選択肢が偽の辞書配信から来ている
+- Worker で部屋を作り、2人で WebSocket につないで `ready` を送ると、偽の辞書のお題で試合が始まる（プロトコルを直接叩く）
+
+リトライはしない（落ちを隠さない）。画面の操作（タイピング）や、contribute の Mastodon・GitHub 連携はまだ見ていない。
+落ちたら CI の実行の Artifacts（`e2e-test-results`）の trace を `npx playwright show-trace <zip>` で開く。
 
 ## リリース
 
@@ -95,7 +122,7 @@ gh workflow run tag-release.yml --ref main -f bump=patch
 | ジョブ | 中身 |
 |---|---|
 | meta | 版の確認、前回のタグ、Worker が変わったか（`realtime/`・`lib/engine/words.js`）、DO のマイグレーションが増えたか |
-| checks | ブランチの CI と同じ検査を**全部**（差分で省かない） |
+| checks・e2e | ブランチの CI と同じ検査と E2E を**全部**（差分で省かない） |
 | deploy-worker | `wrangler deploy`。**前回のタグから Worker に関わるファイルが変わったときだけ**（再デプロイで対戦中の部屋が切れるため） |
 | deploy-vercel | `vercel pull` → `vercel build --prod` → `vercel deploy --prebuilt --prod`。続けて本番の画面と Worker が 200 を返すかを確かめる |
 | release | GitHub Release を作る（ノートは自動生成。PR の一覧を Changes と Dependencies（`dependencies` ラベル）に分ける。分類は [.github/release.yml](../.github/release.yml)） |

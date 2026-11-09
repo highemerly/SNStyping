@@ -10,7 +10,7 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    # ふだんは2〜3分（ブラウザの取得とビルドを含む）
+    # ふだんは1分前後（ブラウザの取得とビルドを含む）
     timeout-minutes: 15
     permissions:
       contents: read

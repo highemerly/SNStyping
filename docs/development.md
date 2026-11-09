@@ -51,7 +51,7 @@ gh api -X PATCH repos/highemerly/SNStyping \
 | ジョブ | 中身 | 所要時間の目安 |
 |---|---|---|
 | checks（[checks.yml](../.github/workflows/checks.yml)） | `npm test`（判定エンジンの unit テスト）・`next build`（型検査を含む）・`wrangler deploy --dry-run`（Worker のバンドル） | 1〜2分 |
-| e2e（[e2e.yml](../.github/workflows/e2e.yml)） | E2E スモーク（下の「E2E」）。checks と同じ条件で並行して回す | 2〜3分 |
+| e2e（[e2e.yml](../.github/workflows/e2e.yml)） | E2E スモーク（下の「E2E」）。checks と同じ条件で並行して回す | 1分前後 |
 | ci-result | 走ったジョブの結果を1つにまとめる（必須チェック） | 数秒 |
 
 **差分で間引く。** [.github/scripts/ci-targets.sh](../.github/scripts/ci-targets.sh) が main との merge-base からの差分ファイルを見て決める:

@@ -188,36 +188,37 @@ export default function OnlinePage() {
               <p className="field-note">
                 {ruleType === 'propose'
                   ? '毎試合、参加者全員の提案からランダムで決まります。'
-                  : 'あなたがここで決めたルールで対戦します。'}
+                  : 'あなたが下で決めたルールで、毎試合対戦します。'}
               </p>
+              {ruleType === 'host' && (
+                // 幹事方式の配下の設定だとわかるよう、一段下げて左に線を引く
+                <div className="setting-sub">
+                  <Field label="制限時間">
+                    <SegmentedControl<number>
+                      value={vsDurationSec}
+                      data-testid="vs-duration-select"
+                      onChange={setVsDurationSec}
+                      options={[
+                        { value: 30, label: '30秒' },
+                        { value: 60, label: '60秒' },
+                        { value: 120, label: '120秒' },
+                      ]}
+                    />
+                  </Field>
+                  <Field label="単語リスト">
+                    <Select value={vsWordListId} data-testid="vs-wordlist-select" onChange={(e) => setVsWordListId(e.target.value)}>
+                      {groupWordsByCategory(catalog).map((g) => (
+                        <optgroup key={g.category} label={g.category}>
+                          {g.lists.map((l: WordList) => (
+                            <option key={l.id} value={l.id}>{l.title}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+              )}
             </div>
-            {ruleType === 'host' && (
-              <>
-                <Field label="制限時間">
-                  <SegmentedControl<number>
-                    value={vsDurationSec}
-                    data-testid="vs-duration-select"
-                    onChange={setVsDurationSec}
-                    options={[
-                      { value: 30, label: '30秒' },
-                      { value: 60, label: '60秒' },
-                      { value: 120, label: '120秒' },
-                    ]}
-                  />
-                </Field>
-                <Field label="単語リスト">
-                  <Select value={vsWordListId} data-testid="vs-wordlist-select" onChange={(e) => setVsWordListId(e.target.value)}>
-                    {groupWordsByCategory(catalog).map((g) => (
-                      <optgroup key={g.category} label={g.category}>
-                        {g.lists.map((l: WordList) => (
-                          <option key={l.id} value={l.id}>{l.title}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </Select>
-                </Field>
-              </>
-            )}
             <div className="setting-group">
               <Toggle
                 label="部屋を公開する"

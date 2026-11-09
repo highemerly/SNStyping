@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start -p 3100",
     "deploy:realtime": "wrangler deploy -c realtime/wrangler.jsonc",
+    "e2e": "playwright test",
     "test": "node --test tests/typing.test.mjs tests/kana.test.mjs tests/game.test.mjs tests/align.test.mjs tests/ghost.test.mjs",
     "words:sns": "node scripts/fetch-sns-words.mjs"
   },
@@ -18,6 +19,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.0",
     "@types/node": "^25.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

@@ -1,7 +1,7 @@
 name: CI
 
 # テストゲート。main 以外のブランチへの push で、変更が影響しうるジョブだけを回す
-# （checks.yml＝unit テスト・next build・Worker のバンドル）。
+# （checks.yml＝unit テスト・next build・Worker のバンドル、e2e.yml＝E2E スモーク）。
 # どれを回すかは .github/scripts/ci-targets.sh が main との差分から決める（方針は docs/development.md「CI」）。
 #
 # main への push では回さない: squash マージ前に同じ中身をブランチで通しているため。
@@ -40,12 +40,18 @@ jobs:
     if: needs.changes.outputs.checks == 'true'
     uses: ./.github/workflows/checks.yml
 
+  # checks と同じ条件で、並行して回す
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.checks == 'true'
+    uses: ./.github/workflows/e2e.yml
+
   # main の ruleset の必須チェックはこのジョブだけ。ジョブを差分で間引くと、スキップされたジョブには
   # 結果が付かず、個別に必須にしているとマージできなくなるため、結果をここで1つにまとめる。
   # 成功とスキップは通し、失敗とキャンセル（タイムアウト等）は落とす。実行ごとキャンセルされたとき
   # （同じブランチへの新しい push）は走らせない＝古いコミットに失敗を付けない。
   ci-result:
-    needs: [changes, checks]
+    needs: [changes, checks, e2e]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

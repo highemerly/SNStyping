@@ -1,0 +1,44 @@
+name: E2E
+
+# E2E スモーク（e2e/・playwright.config.ts）を回す再利用可能ワークフロー。
+# 偽の辞書配信・Worker（wrangler dev）・画面（next build && next start）を立てて、
+# 主要な画面が壊れずに開けるか、対戦サーバーで試合が始まるかを見る（docs/development.md「E2E」）。
+# ci.yml（ブランチ push）と release.yml（タグ）から呼ぶ。
+on:
+  workflow_call:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    # ふだんは2〜3分（ブラウザの取得とビルドを含む）
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ブラウザは @playwright/test の版に合ったものを取る（版を上げると取り直す）
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E smoke
+        run: npx playwright test
+
+      # 落ちたときの trace（npx playwright show-trace で開く）
+      - name: Upload test results
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-test-results
+          path: test-results/
+          retention-days: 7

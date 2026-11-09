@@ -1,7 +1,7 @@
 name: Release
 
 # リリース＝本番へのデプロイ。v* タグで次を順に行う（docs/development.md「リリース」）:
-#   全検査（ブランチで差分により省いたものも全部）
+#   全検査（ブランチで差分により省いたものも全部。E2E も）
 #   → Worker（realtime/）をデプロイ（前回のタグから Worker に関わるファイルが変わったときだけ）
 #   → Next.js を Vercel へデプロイ（CLI。main の自動デプロイは vercel.json で止めている）
 #   → 本番の疎通確認 → GitHub Release
@@ -104,9 +104,12 @@ jobs:
   checks:
     uses: ./.github/workflows/checks.yml
 
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+
   # 新しい画面は新しい Worker を前提にしうるので、Worker を先に出す
   deploy-worker:
-    needs: [meta, checks]
+    needs: [meta, checks, e2e]
     if: needs.meta.outputs.worker_changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -134,12 +137,13 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   deploy-vercel:
-    needs: [meta, checks, deploy-worker]
+    needs: [meta, checks, e2e, deploy-worker]
     # Worker を出さない版（skipped）でも進む。Worker のデプロイが落ちたら進まない
     if: >-
       ${{ !cancelled()
       && needs.meta.result == 'success'
       && needs.checks.result == 'success'
+      && needs.e2e.result == 'success'
       && (needs.deploy-worker.result == 'success' || needs.deploy-worker.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15

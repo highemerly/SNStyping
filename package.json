@@ -29,5 +29,10 @@
   },
   "overrides": {
     "sharp": "^0.35.5"
+  },
+  "allowScripts": {
+    "esbuild": false,
+    "workerd": false,
+    "fsevents": false
   }
 }

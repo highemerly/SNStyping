@@ -118,11 +118,6 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--accent); }
 .segmented.is-disabled { opacity: 0.4; }
 .segmented.is-disabled .segmented-option { cursor: default; }
 
-/* ラジオグループ(選択肢ごとに説明が付く縦並び) */
-.radio-group { display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; color: var(--text); }
-.radio-option { display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; }
-.radio-option input { margin-top: 0.15rem; flex-shrink: 0; }
-
 body {
   background: var(--bg);
   color: var(--text);
@@ -351,6 +346,19 @@ body {
   flex-direction: column;
   gap: 0.3rem;
 }
+
+/* ある選択肢の配下にだけ出る設定(例: 幹事方式のときのルール)。一段下げて左に線を引く */
+.setting-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0.4rem 0 0 0.3rem;
+  padding: 0.2rem 0 0.2rem 0.9rem;
+  border-left: 2px solid var(--accent);
+}
+/* 一段下げたぶん狭い画面でラベルが折れやすいので、折り返さずコントロール側を縮める */
+.setting-sub .field-label { white-space: nowrap; }
+.setting-sub .ui-select { min-width: 0; }
 
 .field-note {
   margin: 0;

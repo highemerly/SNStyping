@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { EMPTY_CATALOG, fetchCatalog, findWordList, groupWordsByCategory } from '@/lib/dictsource';
 import { REALTIME_URL } from '@/lib/realtime';
 import type { WordList, Catalog } from '@/components/modeTypes';
-import { Field, RadioGroup, SegmentedControl, Select, Toggle } from '@/components/Controls';
+import { Field, SegmentedControl, Select, Toggle } from '@/components/Controls';
 
 export default function OnlinePage() {
   const router = useRouter();
@@ -160,58 +160,75 @@ export default function OnlinePage() {
       <main className="app">
         <section className="screen-box">
           <h2>ルームを作成</h2>
-          <Field label="対戦人数(上限)">
-            <SegmentedControl<number>
-              value={vsMaxPlayers}
-              data-testid="vs-max-players"
-              onChange={setVsMaxPlayers}
-              options={[
-                { value: 2, label: '2人' },
-                { value: 3, label: '3人' },
-                { value: 4, label: '4人' },
-              ]}
-            />
-          </Field>
-          <p className="lobby-title">対戦ルールの決め方を選んでください</p>
-          <RadioGroup<'propose' | 'host'>
-            name="ruleType"
-            value={ruleType}
-            onChange={setRuleType}
-            data-testid="rule-type"
-            options={[
-              { value: 'propose', label: '提案方式(毎試合、参加者全員の提案からランダムで決定)' },
-              { value: 'host', label: '幹事方式(あなたが今ここで決める)' },
-            ]}
-          />
-          {ruleType === 'host' && (
-            <div className="proposal-row">
+          <div className="card-settings">
+            <Field label="対戦人数(上限)">
               <SegmentedControl<number>
-                value={vsDurationSec}
-                data-testid="vs-duration-select"
-                onChange={setVsDurationSec}
+                value={vsMaxPlayers}
+                data-testid="vs-max-players"
+                onChange={setVsMaxPlayers}
                 options={[
-                  { value: 30, label: '30秒' },
-                  { value: 60, label: '60秒' },
-                  { value: 120, label: '120秒' },
+                  { value: 2, label: '2人' },
+                  { value: 3, label: '3人' },
+                  { value: 4, label: '4人' },
                 ]}
               />
-              <Select value={vsWordListId} data-testid="vs-wordlist-select" onChange={(e) => setVsWordListId(e.target.value)}>
-                {groupWordsByCategory(catalog).map((g) => (
-                  <optgroup key={g.category} label={g.category}>
-                    {g.lists.map((l: WordList) => (
-                      <option key={l.id} value={l.id}>{l.title}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </Select>
+            </Field>
+            <div className="setting-group">
+              <Field label="ルールの決め方">
+                <SegmentedControl<'propose' | 'host'>
+                  value={ruleType}
+                  data-testid="rule-type"
+                  onChange={setRuleType}
+                  options={[
+                    { value: 'propose', label: '提案方式' },
+                    { value: 'host', label: '幹事方式' },
+                  ]}
+                />
+              </Field>
+              <p className="field-note">
+                {ruleType === 'propose'
+                  ? '毎試合、参加者全員の提案からランダムで決まります。'
+                  : 'あなたが下で決めたルールで、毎試合対戦します。'}
+              </p>
+              {ruleType === 'host' && (
+                // 幹事方式の配下の設定だとわかるよう、一段下げて左に線を引く
+                <div className="setting-sub">
+                  <Field label="制限時間">
+                    <SegmentedControl<number>
+                      value={vsDurationSec}
+                      data-testid="vs-duration-select"
+                      onChange={setVsDurationSec}
+                      options={[
+                        { value: 30, label: '30秒' },
+                        { value: 60, label: '60秒' },
+                        { value: 120, label: '120秒' },
+                      ]}
+                    />
+                  </Field>
+                  <Field label="単語リスト">
+                    <Select value={vsWordListId} data-testid="vs-wordlist-select" onChange={(e) => setVsWordListId(e.target.value)}>
+                      {groupWordsByCategory(catalog).map((g) => (
+                        <optgroup key={g.category} label={g.category}>
+                          {g.lists.map((l: WordList) => (
+                            <option key={l.id} value={l.id}>{l.title}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+              )}
             </div>
-          )}
-          <Toggle
-            label="部屋を公開する(公開ルーム一覧に表示され、誰でも参加できます)"
-            checked={isPublic}
-            data-testid="public-toggle"
-            onChange={(e) => setIsPublic(e.target.checked)}
-          />
+            <div className="setting-group">
+              <Toggle
+                label="部屋を公開する"
+                checked={isPublic}
+                data-testid="public-toggle"
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+              <p className="field-note">公開ルーム一覧に表示され、誰でも参加できます。</p>
+            </div>
+          </div>
           <div className="button-row">
             <button className="primary" data-testid="create-room" disabled={creating} onClick={createRoom}>
               {creating ? '作成中…' : 'ルームを作成'} <kbd>Space</kbd>

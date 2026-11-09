@@ -189,14 +189,30 @@ GitHub の Environment **`release`**（デプロイ元を `main` ブランチと
 
 | Secret | 中身 |
 |---|---|
-| `CLOUDFLARE_API_TOKEN` | 「Edit Cloudflare Workers」テンプレートで発行したトークン |
+| `CLOUDFLARE_API_TOKEN` | 「Edit Cloudflare Workers」テンプレートで発行したトークン。Zone Resources に `piyo.me`（Worker のカスタムドメインに「Workers Routes: Edit」が要る） |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare のアカウント ID |
 | `VERCEL_TOKEN` | Vercel のトークン |
 | `VERCEL_ORG_ID`・`VERCEL_PROJECT_ID` | `vercel link` で作られる `.vercel/project.json` の `orgId`・`projectId` |
 
 Vercel の環境変数（Production）: `.env.local` の一式（`CONTRIBUTE_SESSION_SECRET` / `BOT_MASTODON_*` / `GITHUB_BOT_PAT` / `GITHUB_DICT_REPO`）
-＋ `NEXT_PUBLIC_REALTIME_URL`（Worker の URL。疎通確認もここから読む）＋ 独自ドメイン運用時は `NEXT_PUBLIC_SITE_URL`。
-`NEXT_PUBLIC_*` はビルド時に埋め込まれるので、変えたら次のリリースで反映される。独自ドメインへ移したら release.yml の `SITE_URL` も直す。
+＋ `NEXT_PUBLIC_REALTIME_URL`（Worker の URL。疎通確認もここから読む）＋ `NEXT_PUBLIC_SITE_URL`（画面の URL。OG 画像などの絶対 URL に使う）。
+
+- `NEXT_PUBLIC_*` はビルド時に埋め込まれるので、変えたら次のリリースで反映される
+- `NEXT_PUBLIC_*` は **Sensitive にしない**（CLI の `vercel pull` は Sensitive な値を読めず、`[SENSITIVE]` という文字列のままビルドに埋め込まれる。
+  Sensitive にしてよいのは、実行時にだけ読む秘密の値）
+- `NEXT_PUBLIC_SITE_URL` は必ず置く（未設定だと、Vercel が実行時に入れる変数から作るが、Actions でのビルド時には無い）
+
+### ドメイン
+
+| URL | 中身 |
+|---|---|
+| https://snstyping.piyo.me | 画面（Vercel）。Cloudflare の `piyo.me` ゾーンに CNAME を置き、プロキシはオフ（DNS only）。証明書は Vercel が出す |
+| https://realtime-snstyping.piyo.me | 対戦サーバー（Worker のカスタムドメイン。[wrangler.jsonc](../realtime/wrangler.jsonc) の `routes`）。DNS と証明書は `wrangler deploy` が作る |
+| https://snstyping.vercel.app | 旧 URL。Vercel のドメイン設定で新しい URL へ 302 で転送する（SNS に貼られた共有リンクを生かすため、転送はやめない） |
+| `*.workers.dev` | 旧 Worker の URL。移す前に開いた画面のためにしばらく残す |
+
+ドメインを変えたら、release.yml の `SITE_URL` と、Vercel の `NEXT_PUBLIC_SITE_URL`・`NEXT_PUBLIC_REALTIME_URL` を直してリリースする。
+Worker のホスト名を変えるのは Worker のデプロイ＝対戦中の部屋が切れる。
 
 ### ロールバック
 

@@ -118,11 +118,6 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--accent); }
 .segmented.is-disabled { opacity: 0.4; }
 .segmented.is-disabled .segmented-option { cursor: default; }
 
-/* ラジオグループ(選択肢ごとに説明が付く縦並び) */
-.radio-group { display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; color: var(--text); }
-.radio-option { display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; }
-.radio-option input { margin-top: 0.15rem; flex-shrink: 0; }
-
 body {
   background: var(--bg);
   color: var(--text);

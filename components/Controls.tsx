@@ -56,37 +56,6 @@ export function SegmentedControl<T extends string | number>({
   );
 }
 
-// 選択肢ごとに説明文が付くような縦並びのラジオグループ。
-export function RadioGroup<T extends string | number>({
-  value,
-  onChange,
-  name,
-  options,
-  'data-testid': testId,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-  name: string;
-  options: Option<T>[];
-  'data-testid'?: string;
-}) {
-  return (
-    <div className="radio-group" role="radiogroup" data-testid={testId}>
-      {options.map((opt) => (
-        <label key={String(opt.value)} className="radio-option">
-          <input
-            type="radio"
-            name={name}
-            checked={opt.value === value}
-            onChange={() => onChange(opt.value)}
-          />
-          <span>{opt.label}</span>
-        </label>
-      ))}
-    </div>
-  );
-}
-
 // トグルスイッチ。checkbox の意味論はそのまま、見た目だけスイッチに置換する。
 export function Toggle({
   label,

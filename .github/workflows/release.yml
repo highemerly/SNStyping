@@ -25,8 +25,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # 本番の画面の URL（公開しているもの）。独自ドメインへ移したらここも直す
-  SITE_URL: https://snstyping.vercel.app
+  # 本番の画面の URL。ドメインを変えたらここも直す
+  SITE_URL: https://snstyping.piyo.me
   # Worker に入るファイル。realtime/ の外から import するものを足したら、ここにも足す
   WORKER_PATHS: realtime/ lib/engine/words.js
   # renovate: datasource=npm depName=vercel
@@ -181,7 +181,7 @@ jobs:
         run: vercel deploy --prebuilt --prod
 
       # 出したものそのものを確かめる唯一の検査。画面と Worker が本番で応答するかだけを見る。
-      # Worker の URL は Vercel の本番の環境変数から読む（アカウントのサブドメインをログに出さない）
+      # Worker の URL は Vercel の本番の環境変数から読む（画面に埋め込んだものと同じ URL を確かめる）
       - name: Smoke test production
         run: |
           realtime_url="$(sed -n 's/^NEXT_PUBLIC_REALTIME_URL="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' .vercel/.env.production.local)"
@@ -189,7 +189,6 @@ jobs:
             echo "::error::NEXT_PUBLIC_REALTIME_URL is not set in the production environment"
             exit 1
           fi
-          echo "::add-mask::$realtime_url"
           check() {
             code="$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-all-errors --max-time 20 "$1")"
             echo "$2: $code"

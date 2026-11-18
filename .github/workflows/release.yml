@@ -30,7 +30,7 @@ env:
   # Worker に入るファイル。realtime/ の外から import するものを足したら、ここにも足す
   WORKER_PATHS: realtime/ lib/engine/words.js lib/engine/rule.js
   # renovate: datasource=npm depName=vercel
-  VERCEL_CLI_VERSION: 65.14.0
+  VERCEL_CLI_VERSION: 65.16.0
 
 jobs:
   meta:

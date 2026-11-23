@@ -198,6 +198,9 @@ jobs:
 
   release:
     needs: [meta, deploy-vercel]
+    # if を書かないと暗黙の success() になり、needs の先（deploy-vercel が待つ deploy-worker）が
+    # skipped なだけで飛ばされる（Worker を出さない版で Release が作られなかった: v1.1.1）
+    if: ${{ !cancelled() && needs.meta.result == 'success' && needs.deploy-vercel.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

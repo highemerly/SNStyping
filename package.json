@@ -25,7 +25,7 @@
     "@types/react-dom": "^19.3.0",
     "kuromoji": "^0.1.2",
     "typescript": "^5.9.3",
-    "wrangler": "^4.165.0"
+    "wrangler": "^4.166.0"
   },
   "overrides": {
     "sharp": "^0.35.5"
